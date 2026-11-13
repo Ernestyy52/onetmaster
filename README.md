@@ -23,6 +23,12 @@ npm run dev          # http://localhost:5173
 
 ครั้งแรกที่รัน e2e ให้ติดตั้งเบราว์เซอร์ก่อน: `npx playwright install chromium`
 
+## เผยแพร่ให้เล่นจากลิงก์
+
+Build เป็นไฟล์ static (`dist/`, `base: './'`) จึงวางที่โฮสต์ใดก็ได้
+- **GitHub Pages** — `.github/workflows/pages.yml` deploy อัตโนมัติทุกครั้งที่ push `main` เมื่อ repo เป็น public (แผนฟรีไม่รองรับ Pages ของ repo private) จากนั้นเปิด Settings → Pages → Source: GitHub Actions · ลิงก์: `https://ernestyy52.github.io/onetmaster/`
+- **Netlify** (เก็บ repo เป็น private ได้) — เชื่อม repo ใน Netlify แล้วใช้ค่าจาก `netlify.toml`
+
 ## สิ่งที่เล่นได้แล้ว
 
 เส้นทาง: **เริ่มเกม → ตั้งชื่อเล่น/เลือกรูปลักษณ์ → เดินไปหาอาจารย์ฮูก → รับภารกิจ → สู้หมอกลืมเลือน (ตอบโจทย์ช่วงศัตรูตั้งโล่) → ได้ XP + เลเวลอัป + อุปกรณ์ → รับภารกิจประตูคณิต → สู้บอสผู้พิทักษ์เฟือง → ได้ประแจเฟืองทองแดง → สวมใส่จากกระเป๋า → แตะประตูโรงกลจักรเพื่อเปิด → Refresh แล้วกลับมาที่ Story State เดิม**
