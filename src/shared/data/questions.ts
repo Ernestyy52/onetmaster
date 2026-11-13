@@ -1,0 +1,295 @@
+import type { QuestionItem } from '../types';
+
+/**
+ * Prototype question bank — 24 NEW items written for the prototype (not copied from past
+ * exams). Every item is `review` status: a teacher must approve it before real classroom
+ * use. `indicator` values are placeholders until mapped to the NIETS 2569 blueprint.
+ */
+const BP = 'onet-p6-2569-draft';
+
+type Draft = Omit<QuestionItem, 'blueprint_version' | 'item_type' | 'review_status' | 'version' | 'source_refs'> & {
+  source_refs?: string[];
+};
+
+function q(d: Draft): QuestionItem {
+  return {
+    blueprint_version: BP,
+    item_type: 'single_choice',
+    review_status: 'review',
+    version: 1,
+    source_refs: d.source_refs ?? ['original:prototype-2569-11'],
+    ...d,
+  };
+}
+
+export const QUESTION_BANK: QuestionItem[] = [
+  // ───────────── คณิตศาสตร์ ─────────────
+  q({
+    id: 'm-001', subject: 'math', indicator: 'ค-TBD-เศษส่วนของจำนวน', skill_id: 'math.fraction_of_quantity', difficulty: 2,
+    variant_family_id: 'fam.math.frac_remaining',
+    stem: 'แผงควบคุมบอกว่าเครื่องมีพลังงานเต็มถัง 24 หน่วย ถ้าใช้ไป 3/8 ของถัง จะเหลือพลังงานกี่หน่วย',
+    options: [{ id: 'a', text: '9 หน่วย' }, { id: 'b', text: '15 หน่วย' }, { id: 'c', text: '12 หน่วย' }, { id: 'd', text: '21 หน่วย' }],
+    answer_key: 'b',
+    explanation: 'ใช้ไป 3/8 ของ 24 = 24 ÷ 8 × 3 = 9 หน่วย จึงเหลือ 24 − 9 = 15 หน่วย',
+    distractor_rationale: { a: '9 คือส่วนที่ใช้ไป ไม่ใช่ส่วนที่เหลือ', c: '12 คือครึ่งถัง ไม่เกี่ยวกับ 3/8', d: 'นำ 24 − 3 โดยไม่ได้คิดเศษส่วน' },
+  }),
+  q({
+    id: 'm-002', subject: 'math', indicator: 'ค-TBD-เศษส่วนของจำนวน', skill_id: 'math.fraction_of_quantity', difficulty: 1,
+    variant_family_id: 'fam.math.frac_of_qty',
+    stem: 'เฟืองชุดหนึ่งมี 40 ซี่ ช่างทาสีน้ำเงิน 2/5 ของทั้งหมด ทาสีน้ำเงินกี่ซี่',
+    options: [{ id: 'a', text: '8 ซี่' }, { id: 'b', text: '16 ซี่' }, { id: 'c', text: '20 ซี่' }, { id: 'd', text: '24 ซี่' }],
+    answer_key: 'b',
+    explanation: 'แบ่ง 40 ซี่ เป็น 5 ส่วน ส่วนละ 8 ซี่ เอา 2 ส่วน = 16 ซี่',
+    distractor_rationale: { a: '8 คือขนาดของ 1 ส่วน ยังไม่ได้คูณ 2', c: '20 คือครึ่งหนึ่งของ 40', d: '24 คือส่วนที่ไม่ได้ทาสี (3/5)' },
+  }),
+  q({
+    id: 'm-003', subject: 'math', indicator: 'ค-TBD-เปรียบเทียบเศษส่วน', skill_id: 'math.fraction_compare', difficulty: 2,
+    variant_family_id: 'fam.math.frac_compare_max',
+    stem: 'ถังพลังงานสี่ถังเติมไว้ 3/4, 2/3, 5/8 และ 7/12 ของถัง ถังใดมีพลังงานมากที่สุด',
+    options: [{ id: 'a', text: '3/4' }, { id: 'b', text: '2/3' }, { id: 'c', text: '5/8' }, { id: 'd', text: '7/12' }],
+    answer_key: 'a',
+    explanation: 'ทำส่วนให้เป็น 24: 3/4 = 18/24, 2/3 = 16/24, 5/8 = 15/24, 7/12 = 14/24 ดังนั้น 3/4 มากที่สุด',
+    distractor_rationale: { b: '2/3 = 16/24 น้อยกว่า 18/24', c: 'ตัวเศษ 5 ไม่ได้แปลว่าค่ามากกว่า', d: 'ตัวเศษและตัวส่วนมากที่สุด แต่ค่าน้อยที่สุด' },
+  }),
+  q({
+    id: 'm-004', subject: 'math', indicator: 'ค-TBD-บวกเศษส่วน', skill_id: 'math.fraction_add', difficulty: 2,
+    variant_family_id: 'fam.math.frac_add_unlike',
+    stem: 'ตอนเช้าเติมน้ำมันเครื่อง 1/4 ถัง ตอนบ่ายเติมอีก 1/3 ถัง รวมเติมไปกี่ส่วนของถัง',
+    options: [{ id: 'a', text: '2/7' }, { id: 'b', text: '7/12' }, { id: 'c', text: '2/12' }, { id: 'd', text: '1/2' }],
+    answer_key: 'b',
+    explanation: '1/4 = 3/12 และ 1/3 = 4/12 รวมกันได้ 7/12',
+    distractor_rationale: { a: 'นำเศษบวกเศษ ส่วนบวกส่วน ซึ่งทำไม่ได้', c: 'บวกตัวเศษแต่ไม่ได้ทำส่วนให้เท่ากันก่อน', d: 'ประมาณค่าโดยไม่ได้คำนวณ' },
+  }),
+  q({
+    id: 'm-005', subject: 'math', indicator: 'ค-TBD-อัตราส่วน', skill_id: 'math.ratio', difficulty: 2,
+    variant_family_id: 'fam.math.ratio_scale',
+    stem: 'ผสมสีฟ้ากับสีขาวในอัตราส่วน 2 : 3 ถ้าใช้สีขาว 12 ลิตร ต้องใช้สีฟ้ากี่ลิตร',
+    options: [{ id: 'a', text: '6 ลิตร' }, { id: 'b', text: '8 ลิตร' }, { id: 'c', text: '10 ลิตร' }, { id: 'd', text: '18 ลิตร' }],
+    answer_key: 'b',
+    explanation: 'สีขาว 3 ส่วน = 12 ลิตร ส่วนละ 4 ลิตร สีฟ้า 2 ส่วน = 8 ลิตร',
+    distractor_rationale: { a: 'ครึ่งหนึ่งของ 12 ไม่ได้ใช้อัตราส่วน', c: 'ลบ 2 ออกจาก 12', d: 'สลับอัตราส่วน (12 ÷ 2 × 3)' },
+  }),
+  q({
+    id: 'm-006', subject: 'math', indicator: 'ค-TBD-ความยาวรอบรูป', skill_id: 'math.measurement', difficulty: 1,
+    variant_family_id: 'fam.math.perimeter_rect',
+    stem: 'สะพานไม้รูปสี่เหลี่ยมผืนผ้ากว้าง 1.5 เมตร ยาว 4 เมตร ความยาวรอบรูปเป็นเท่าไร',
+    options: [{ id: 'a', text: '5.5 เมตร' }, { id: 'b', text: '6 เมตร' }, { id: 'c', text: '11 เมตร' }, { id: 'd', text: '22 เมตร' }],
+    answer_key: 'c',
+    explanation: 'ความยาวรอบรูป = 2 × (1.5 + 4) = 2 × 5.5 = 11 เมตร',
+    distractor_rationale: { a: 'บวกกว้างกับยาวเพียงครั้งเดียว', b: 'คือพื้นที่ (1.5 × 4) ไม่ใช่ความยาวรอบรูป', d: 'คูณ 2 ซ้ำสองครั้ง' },
+  }),
+  q({
+    id: 'm-007', subject: 'math', indicator: 'ค-TBD-ร้อยละ', skill_id: 'math.percent', difficulty: 2,
+    variant_family_id: 'fam.math.percent_discount',
+    stem: 'ร้านอุปกรณ์ลดราคา 20% จากราคา 250 บาท ต้องจ่ายเงินเท่าไร',
+    options: [{ id: 'a', text: '50 บาท' }, { id: 'b', text: '200 บาท' }, { id: 'c', text: '225 บาท' }, { id: 'd', text: '230 บาท' }],
+    answer_key: 'b',
+    explanation: '20% ของ 250 = 50 บาท จ่าย 250 − 50 = 200 บาท',
+    distractor_rationale: { a: '50 คือส่วนลด ไม่ใช่ราคาที่จ่าย', c: 'คิดส่วนลดเป็น 10%', d: 'ลบ 20 บาทแทน 20%' },
+  }),
+  q({
+    id: 'm-008', subject: 'math', indicator: 'ค-TBD-เศษส่วนของจำนวน', skill_id: 'math.fraction_of_quantity', difficulty: 1,
+    variant_family_id: 'fam.math.frac_remaining',
+    stem: 'แบตเตอรี่หุ่นยนต์มีพลังงาน 32 หน่วย ใช้ไป 1/4 จะเหลือพลังงานกี่หน่วย',
+    options: [{ id: 'a', text: '8 หน่วย' }, { id: 'b', text: '16 หน่วย' }, { id: 'c', text: '24 หน่วย' }, { id: 'd', text: '28 หน่วย' }],
+    answer_key: 'c',
+    explanation: 'ใช้ไป 32 ÷ 4 = 8 หน่วย เหลือ 32 − 8 = 24 หน่วย',
+    distractor_rationale: { a: '8 คือส่วนที่ใช้ไป', b: 'คิดเป็นครึ่งหนึ่ง', d: 'นำ 32 − 4 โดยไม่ได้คิดเศษส่วน' },
+  }),
+
+  // ───────────── ภาษาไทย ─────────────
+  q({
+    id: 't-001', subject: 'thai', indicator: 'ท-TBD-อ่านจับใจความ', skill_id: 'thai.evidence', difficulty: 2,
+    variant_family_id: 'fam.thai.guard_log',
+    stem: 'จากบันทึกยาม ใครน่าจะเป็นคนเปิดประตูหอจดหมายเหตุ',
+    stimulus: {
+      kind: 'text', title: 'บันทึกยามคืนวันพุธ',
+      lines: [
+        '20.00 น. ครูมาลีตรวจห้องและล็อกประตูเรียบร้อย',
+        '21.30 น. ภารโรงสมชายเก็บกุญแจสำรองไว้ในตู้ของตน',
+        '22.10 น. ได้ยินเสียงประตูเปิด กุญแจสำรองหายไปจากตู้ภารโรง',
+        '22.15 น. เห็นนักเรียนชื่อปิ่นถือกุญแจสำรองเดินออกมา',
+      ],
+    },
+    options: [{ id: 'a', text: 'ครูมาลี' }, { id: 'b', text: 'ภารโรงสมชาย' }, { id: 'c', text: 'ปิ่น' }, { id: 'd', text: 'สรุปไม่ได้เลย' }],
+    answer_key: 'c',
+    explanation: 'บันทึกระบุว่าประตูเปิดหลังกุญแจสำรองหาย และเห็นปิ่นถือกุญแจสำรองนั้น จึงเป็นหลักฐานที่ชี้ไปที่ปิ่นมากที่สุด',
+    distractor_rationale: { a: 'ครูมาลีล็อกประตูตั้งแต่ 20.00 น.', b: 'ภารโรงเก็บกุญแจไว้ แต่กุญแจหายไปจากตู้', d: 'มีหลักฐานเรื่องกุญแจสำรองอยู่ในบันทึก' },
+  }),
+  q({
+    id: 't-002', subject: 'thai', indicator: 'ท-TBD-ความหมายคำ', skill_id: 'thai.vocabulary', difficulty: 1,
+    variant_family_id: 'fam.thai.word_meaning',
+    stem: '“นักเรียนใหม่ขะมักเขม้นฝึกอ่านทุกเย็น” คำว่า ขะมักเขม้น หมายถึงข้อใด',
+    options: [{ id: 'a', text: 'เหนื่อยล้า' }, { id: 'b', text: 'ตั้งใจทำอย่างจริงจัง' }, { id: 'c', text: 'ทำอย่างรีบร้อน' }, { id: 'd', text: 'ทำบ้างไม่ทำบ้าง' }],
+    answer_key: 'b',
+    explanation: 'ขะมักเขม้น หมายถึง ตั้งอกตั้งใจทำอย่างจริงจัง',
+    distractor_rationale: { a: 'เป็นผลของการทำงาน ไม่ใช่ความหมายคำ', c: 'รีบร้อนไม่ได้แปลว่าตั้งใจ', d: 'ตรงข้ามกับคำว่า “ทุกเย็น” ในประโยค' },
+  }),
+  q({
+    id: 't-003', subject: 'thai', indicator: 'ท-TBD-ลักษณนาม', skill_id: 'thai.grammar', difficulty: 1,
+    variant_family_id: 'fam.thai.classifier',
+    stem: 'ข้อใดใช้ลักษณนามถูกต้อง',
+    options: [{ id: 'a', text: 'ร่ม 2 ใบ' }, { id: 'b', text: 'แหวน 1 อัน' }, { id: 'c', text: 'พระภิกษุ 3 รูป' }, { id: 'd', text: 'จดหมาย 4 แผ่น' }],
+    answer_key: 'c',
+    explanation: 'พระภิกษุใช้ลักษณนามว่า “รูป” ส่วนร่มใช้ “คัน” แหวนใช้ “วง” จดหมายใช้ “ฉบับ”',
+    distractor_rationale: { a: 'ร่มใช้ลักษณนามว่า คัน', b: 'แหวนใช้ลักษณนามว่า วง', d: 'จดหมายใช้ลักษณนามว่า ฉบับ' },
+  }),
+  q({
+    id: 't-004', subject: 'thai', indicator: 'ท-TBD-การสะกดคำ', skill_id: 'thai.spelling', difficulty: 2,
+    variant_family_id: 'fam.thai.spelling_pair',
+    stem: 'ข้อใดสะกดถูกต้องทุกคำ',
+    options: [{ id: 'a', text: 'อนุญาต ศีรษะ' }, { id: 'b', text: 'อนุญาติ ศีรษะ' }, { id: 'c', text: 'อนุญาต ศรีษะ' }, { id: 'd', text: 'อนุญาติ ศรีษะ' }],
+    answer_key: 'a',
+    explanation: 'คำที่ถูกคือ “อนุญาต” (ไม่มีสระอิ) และ “ศีรษะ” (ศ + สระอี + ร)',
+    distractor_rationale: { b: 'อนุญาติ เติมสระอิเกินมา', c: 'ศรีษะ วางสระอีผิดตำแหน่ง', d: 'ผิดทั้งสองคำ' },
+  }),
+  q({
+    id: 't-005', subject: 'thai', indicator: 'ท-TBD-อ่านแล้วสรุป', skill_id: 'thai.inference', difficulty: 2,
+    variant_family_id: 'fam.thai.sign_inference',
+    stem: 'จากป้ายนี้ ข้อใดสรุปได้ถูกต้อง',
+    stimulus: { kind: 'text', title: 'ป้ายหน้าหออักษร', lines: ['เปิดบริการ 08.00–16.00 น.', 'ปิดทุกวันอาทิตย์', 'ยืมหนังสือได้ครั้งละ 3 เล่ม'] },
+    options: [
+      { id: 'a', text: 'วันอาทิตย์เวลา 09.00 น. เข้าห้องสมุดได้' },
+      { id: 'b', text: 'วันเสาร์เวลา 15.00 น. เข้าห้องสมุดได้' },
+      { id: 'c', text: 'วันจันทร์เวลา 17.00 น. ยืมหนังสือได้' },
+      { id: 'd', text: 'ยืมหนังสือได้ครั้งละ 5 เล่ม' },
+    ],
+    answer_key: 'b',
+    explanation: 'วันเสาร์ไม่ได้ปิด และ 15.00 น. อยู่ในช่วง 08.00–16.00 น.',
+    distractor_rationale: { a: 'ป้ายบอกว่าปิดทุกวันอาทิตย์', c: '17.00 น. เลยเวลาปิดแล้ว', d: 'ป้ายระบุครั้งละ 3 เล่ม' },
+  }),
+  q({
+    id: 't-006', subject: 'thai', indicator: 'ท-TBD-ใจความสำคัญ', skill_id: 'thai.main_idea', difficulty: 1,
+    variant_family_id: 'fam.thai.main_idea_short',
+    stem: '“ต้นไม้ช่วยให้ร่มเงา ดูดซับฝุ่น และเป็นที่อยู่ของนก โรงเรียนจึงชวนนักเรียนปลูกต้นไม้คนละหนึ่งต้น” ใจความสำคัญคือข้อใด',
+    options: [
+      { id: 'a', text: 'นกชอบอยู่บนต้นไม้' },
+      { id: 'b', text: 'ต้นไม้มีประโยชน์ โรงเรียนจึงชวนปลูกต้นไม้' },
+      { id: 'c', text: 'ฝุ่นในโรงเรียนมีมาก' },
+      { id: 'd', text: 'นักเรียนต้องซื้อต้นไม้' },
+    ],
+    answer_key: 'b',
+    explanation: 'ข้อความกล่าวถึงประโยชน์ของต้นไม้แล้วสรุปว่าโรงเรียนชวนปลูก จึงเป็นใจความสำคัญ',
+    distractor_rationale: { a: 'เป็นรายละเอียดย่อย', c: 'ข้อความไม่ได้บอกว่าฝุ่นมาก', d: 'ไม่มีข้อมูลเรื่องการซื้อ' },
+  }),
+
+  // ───────────── ภาษาอังกฤษ ─────────────
+  q({
+    id: 'e-001', subject: 'english', indicator: 'ต-TBD-อ่านป้าย', skill_id: 'english.sign_reading', difficulty: 2,
+    variant_family_id: 'fam.eng.shop_hours',
+    stem: 'When can you buy medicine at this shop?',
+    stimulus: { kind: 'text', title: 'Sign', lines: ['PHARMACY', 'Open 9 a.m. – 5 p.m.', 'Closed on Sundays'] },
+    options: [
+      { id: 'a', text: 'Sunday at 10 a.m.' },
+      { id: 'b', text: 'Monday at 4 p.m.' },
+      { id: 'c', text: 'Tuesday at 7 p.m.' },
+      { id: 'd', text: 'Friday at 8 a.m.' },
+    ],
+    answer_key: 'b',
+    explanation: 'ร้านเปิด 9 โมงเช้าถึง 5 โมงเย็น และปิดวันอาทิตย์ วันจันทร์ 4 โมงเย็นจึงซื้อได้',
+    distractor_rationale: { a: 'Closed on Sundays = ปิดวันอาทิตย์', c: '7 p.m. เลยเวลาปิด 5 p.m.', d: '8 a.m. ร้านยังไม่เปิด' },
+  }),
+  q({
+    id: 'e-002', subject: 'english', indicator: 'ต-TBD-บทสนทนา', skill_id: 'english.dialogue', difficulty: 1,
+    variant_family_id: 'fam.eng.reply_thanks',
+    stem: 'A: “Thank you for helping me with my bag.”  B: “______”',
+    options: [{ id: 'a', text: 'You’re welcome.' }, { id: 'b', text: 'I’m sorry.' }, { id: 'c', text: 'See you yesterday.' }, { id: 'd', text: 'Yes, I am.' }],
+    answer_key: 'a',
+    explanation: 'เมื่อมีคนขอบคุณ ตอบรับว่า “You’re welcome.” (ยินดีครับ/ค่ะ)',
+    distractor_rationale: { b: 'ใช้เมื่อขอโทษ', c: 'ใช้เวลาผิด (yesterday = เมื่อวาน)', d: 'ไม่ตอบรับคำขอบคุณ' },
+  }),
+  q({
+    id: 'e-003', subject: 'english', indicator: 'ต-TBD-คำศัพท์', skill_id: 'english.vocabulary', difficulty: 1,
+    variant_family_id: 'fam.eng.verb_meaning',
+    stem: '“The ship carries letters to the next city.” คำว่า carries หมายถึงข้อใด',
+    options: [{ id: 'a', text: 'ขนส่ง / นำไป' }, { id: 'b', text: 'ขาย' }, { id: 'c', text: 'เขียน' }, { id: 'd', text: 'ซ่อน' }],
+    answer_key: 'a',
+    explanation: 'carry แปลว่า ถือ ขน หรือนำไป เรือจึง “นำจดหมายไป” ยังเมืองถัดไป',
+    distractor_rationale: { b: 'ขาย = sell', c: 'เขียน = write', d: 'ซ่อน = hide' },
+  }),
+  q({
+    id: 'e-004', subject: 'english', indicator: 'ต-TBD-ตำแหน่งทิศทาง', skill_id: 'english.directions', difficulty: 2,
+    variant_family_id: 'fam.eng.between_order',
+    stem: 'Tom: “Where is the post office?”  Ann: “It’s between the bank and the bakery.”  ข้อใดเรียงตำแหน่งถูกต้อง',
+    options: [
+      { id: 'a', text: 'post office – bank – bakery' },
+      { id: 'b', text: 'bank – post office – bakery' },
+      { id: 'c', text: 'bank – bakery – post office' },
+      { id: 'd', text: 'bakery – bank – post office' },
+    ],
+    answer_key: 'b',
+    explanation: 'between A and B = อยู่ระหว่าง A กับ B ที่ทำการไปรษณีย์จึงอยู่ตรงกลาง',
+    distractor_rationale: { a: 'post office อยู่ริมสุด ไม่ได้อยู่ระหว่าง', c: 'post office อยู่ริมสุด', d: 'post office อยู่ริมสุด' },
+  }),
+  q({
+    id: 'e-005', subject: 'english', indicator: 'ต-TBD-ไวยากรณ์', skill_id: 'english.grammar', difficulty: 1,
+    variant_family_id: 'fam.eng.present_simple_s',
+    stem: 'Mali ______ to the library every Saturday.',
+    options: [{ id: 'a', text: 'go' }, { id: 'b', text: 'goes' }, { id: 'c', text: 'going' }, { id: 'd', text: 'gone' }],
+    answer_key: 'b',
+    explanation: 'ประธานเอกพจน์บุรุษที่ 3 (Mali) กับเหตุการณ์ที่ทำเป็นประจำ ใช้กริยาเติม -es → goes',
+    distractor_rationale: { a: 'ใช้กับ I/you/we/they', c: 'ต้องมี is นำหน้า', d: 'ต้องมี has นำหน้า' },
+  }),
+
+  // ───────────── วิทยาศาสตร์ ─────────────
+  q({
+    id: 's-001', subject: 'science', indicator: 'ว-TBD-ควบคุมตัวแปร', skill_id: 'science.variables', difficulty: 2,
+    variant_family_id: 'fam.sci.fair_test_light',
+    stem: 'ต้องการทดสอบว่า “แสง” มีผลต่อการเติบโตของต้นกล้าหรือไม่ ควรจัดการทดลองแบบใด',
+    options: [
+      { id: 'a', text: 'ปลูกต้นกล้าต่างชนิดกัน วางไว้ที่แสงเท่ากัน' },
+      { id: 'b', text: 'ปลูกต้นกล้าชนิดเดียวกัน ดินและน้ำเท่ากัน แต่ให้แสงต่างกัน' },
+      { id: 'c', text: 'ปลูกต้นกล้าชนิดเดียวกัน ให้แสงต่างกันและน้ำต่างกัน' },
+      { id: 'd', text: 'ปลูกต้นกล้าต้นเดียวแล้ววัดความสูงทุกวัน' },
+    ],
+    answer_key: 'b',
+    explanation: 'การทดลองที่ยุติธรรมเปลี่ยนเพียงตัวแปรต้นตัวเดียว (แสง) และควบคุมสิ่งอื่นให้เหมือนกัน',
+    distractor_rationale: { a: 'เปลี่ยนชนิดต้นกล้า ไม่ได้ทดสอบแสง', c: 'เปลี่ยนสองตัวแปร จึงไม่รู้ว่าผลมาจากอะไร', d: 'ไม่มีกลุ่มเปรียบเทียบ' },
+  }),
+  q({
+    id: 's-002', subject: 'science', indicator: 'ว-TBD-แปลความหมายข้อมูล', skill_id: 'science.data_reading', difficulty: 2,
+    variant_family_id: 'fam.sci.table_growth',
+    stem: 'จากตาราง ข้อสรุปใดถูกต้องที่สุด',
+    stimulus: {
+      kind: 'table', caption: 'ความสูงของต้นกล้า (เซนติเมตร)',
+      headers: ['วันที่', 'วางที่มีแสง', 'วางในที่มืด'],
+      rows: [['1', '2', '2'], ['3', '4', '3'], ['5', '7', '3']],
+    },
+    options: [
+      { id: 'a', text: 'ต้นกล้าในที่มืดสูงขึ้นเร็วกว่า' },
+      { id: 'b', text: 'ต้นกล้าที่ได้รับแสงสูงขึ้นมากกว่าในช่วง 5 วัน' },
+      { id: 'c', text: 'ต้นกล้าทั้งสองกลุ่มสูงเท่ากันทุกวัน' },
+      { id: 'd', text: 'แสงทำให้ต้นกล้าเตี้ยลง' },
+    ],
+    answer_key: 'b',
+    explanation: 'กลุ่มที่มีแสงสูงจาก 2 เป็น 7 ซม. ส่วนกลุ่มในที่มืดสูงจาก 2 เป็น 3 ซม.',
+    distractor_rationale: { a: 'ในที่มืดสูงขึ้นเพียง 1 ซม.', c: 'เท่ากันเฉพาะวันที่ 1', d: 'ข้อมูลแสดงตรงกันข้าม' },
+  }),
+  q({
+    id: 's-003', subject: 'science', indicator: 'ว-TBD-การเปลี่ยนสถานะ', skill_id: 'science.matter', difficulty: 1,
+    variant_family_id: 'fam.sci.evaporation',
+    stem: 'น้ำในจานที่ตากแดดไว้ค่อย ๆ หายไป เป็นการเปลี่ยนสถานะจากอะไรเป็นอะไร',
+    options: [{ id: 'a', text: 'ของแข็ง → ของเหลว' }, { id: 'b', text: 'ของเหลว → ของแข็ง' }, { id: 'c', text: 'ของเหลว → แก๊ส' }, { id: 'd', text: 'แก๊ส → ของเหลว' }],
+    answer_key: 'c',
+    explanation: 'การระเหยคือน้ำ (ของเหลว) ได้รับความร้อนแล้วกลายเป็นไอน้ำ (แก๊ส)',
+    distractor_rationale: { a: 'คือการหลอมเหลว', b: 'คือการแข็งตัว', d: 'คือการควบแน่น' },
+  }),
+  q({
+    id: 's-004', subject: 'science', indicator: 'ว-TBD-ห่วงโซ่อาหาร', skill_id: 'science.ecosystem', difficulty: 2,
+    variant_family_id: 'fam.sci.food_chain_drop',
+    stem: 'ห่วงโซ่อาหาร: ข้าว → หนู → งู → เหยี่ยว ถ้าจำนวนหนูลดลงมาก สิ่งใดน่าจะเกิดขึ้นก่อน',
+    options: [{ id: 'a', text: 'ข้าวลดลง' }, { id: 'b', text: 'งูมีอาหารน้อยลง' }, { id: 'c', text: 'เหยี่ยวเพิ่มขึ้น' }, { id: 'd', text: 'ไม่มีอะไรเปลี่ยน' }],
+    answer_key: 'b',
+    explanation: 'งูกินหนูโดยตรง เมื่อหนูลดลง งูจะได้รับผลกระทบก่อน',
+    distractor_rationale: { a: 'หนูกินข้าว เมื่อหนูลด ข้าวน่าจะเพิ่มขึ้น', c: 'เหยี่ยวน่าจะมีอาหารลดลงตามงู', d: 'สิ่งมีชีวิตในห่วงโซ่เกี่ยวข้องกัน' },
+  }),
+  q({
+    id: 's-005', subject: 'science', indicator: 'ว-TBD-แสงและวัตถุ', skill_id: 'science.light', difficulty: 1,
+    variant_family_id: 'fam.sci.translucent',
+    stem: 'ข้อใดเป็นวัตถุโปร่งแสง',
+    options: [{ id: 'a', text: 'กระจกใส' }, { id: 'b', text: 'กระจกฝ้า' }, { id: 'c', text: 'แผ่นไม้' }, { id: 'd', text: 'แผ่นอะลูมิเนียม' }],
+    answer_key: 'b',
+    explanation: 'วัตถุโปร่งแสงให้แสงผ่านได้บางส่วน มองเห็นอีกด้านไม่ชัด เช่น กระจกฝ้า',
+    distractor_rationale: { a: 'กระจกใสเป็นวัตถุโปร่งใส', c: 'ไม้เป็นวัตถุทึบแสง', d: 'อะลูมิเนียมเป็นวัตถุทึบแสง' },
+  }),
+];

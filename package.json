@@ -1,0 +1,45 @@
+{
+  "name": "onetmaster",
+  "private": true,
+  "version": "0.1.0",
+  "description": "หอคอยสี่วิชา — เกม RPG Pixel Isometric เตรียมสอบ O-NET ป.6 (ต้นแบบ)",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173 --strictPort",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "assets": "tsx tools/assets/generate-placeholders.ts && tsx tools/maps/generate-hub.ts",
+    "validate:maps": "tsx tools/maps/validate.ts"
+  },
+  "dependencies": {
+    "phaser": "3.90.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "zustand": "4.5.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.29.0",
+    "@playwright/test": "1.53.0",
+    "@types/node": "22.15.30",
+    "@types/pngjs": "6.0.5",
+    "@types/react": "18.3.23",
+    "@types/react-dom": "18.3.7",
+    "@vitejs/plugin-react": "4.5.2",
+    "eslint": "9.29.0",
+    "eslint-plugin-react-hooks": "5.2.0",
+    "globals": "16.2.0",
+    "pngjs": "7.0.0",
+    "tsx": "4.20.3",
+    "typescript": "5.8.3",
+    "typescript-eslint": "8.34.1",
+    "vite": "6.3.5",
+    "vitest": "3.2.4"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true
+  }
+}
