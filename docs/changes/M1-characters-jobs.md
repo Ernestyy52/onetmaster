@@ -53,20 +53,53 @@ Mastery is account-wide on purpose. It measures the child, so a new character mu
 | `src/ui/panels/Panels.tsx` | **JobsPanel** (new); inventory shows "ใช้ได้เฉพาะ…" and blocks wrong-job gear; menu has "เปลี่ยนตัวละคร" |
 | `src/ui/battle/BattleUI.tsx`, `src/ui/App.tsx` | job skill button (key T); result card shows Job XP / Job Level up |
 | `src/ui/components/Hud.tsx` | job chip (opens jobs panel); focus pips use the real max focus |
-| `src/game/scenes/*` | sprite key from `spriteKey()`; animations created for all 4 player sheets; skill/reflect animations |
-| `tools/assets/generate-placeholders.ts` | `Look.longHair/ribbon/skirt`; new sheet `player_female_basic` (same outfit as `player_swordsman`, long hair); hub manifest size fixed to 23×23 |
+| `src/game/scenes/*` | sprite key from `spriteKey()`; animations for both player sheets; skill/reflect animations; a `PaperDoll` on the player in Hub and Battle |
+| `src/game/paperDoll.ts` (new) | equipment overlay sprites that copy the body's frame, position, depth and alpha on every `POST_UPDATE` |
+| `src/ui/components/common.tsx` | `Portrait({appearance, layers})` stacks the equipment overlays as CSS background layers |
+| `tools/assets/generate-placeholders.ts` | `Look.longHair/ribbon/skirt/mantle/wingBoots`, `drawWeapon()`; base bodies drawn **empty-handed**; `buildOverlay()` makes equipment sheets in `public/assets/equipment/`; new sheet `player_female_basic`; hub manifest size fixed to 23×23 |
 | `tools/maps/generate-hub.ts` | removed 4 duplicate corner trees (duplicate object names) |
 
 ## 4. Sprites (visual contract kept)
 
 | Gender | asset_id | Outfit |
 |---|---|---|
-| male | `player_swordsman` (original id kept) | basic (blue tunic, training sword) |
+| male | `player_swordsman` (original id kept) | basic (blue tunic), **empty hands** |
 | female | `player_female_basic` (new) | the **same** basic outfit; only the hair is long |
 
 `player_mage` (robe and hat) is still in the manifest and loaded, but no character uses it any more. Keep it for a later unlockable outfit. Earlier drafts of this branch had `player_female_adventurer` / `player_female_robe` and an outfit picker; both were removed because the starter outfit must be the same for every player.
 
 Both player sheets are 480×256, 48×64 frames, rows `down,left,right,up`, columns idle×2 / walk×4 / attack×2 / hurt / victory, anchor (0.5, 0.94). They are code-generated **placeholders** (`status: placeholder`). Final art must keep the same grid, anchor and asset ids. Regenerate with `npm run assets`. Generation is deterministic; existing PNGs come out byte-identical.
+
+## 4b. Equipment shown on the character (paper doll)
+
+What a character wears is drawn **on the character in the world, in battle, on the HUD portrait, on character-select slots and in the create preview**. Equip a different weapon or armor and the look changes immediately.
+
+- **How it works:** the player body sheet is drawn without equipment. Each equippable item has `ItemDef.visual` pointing at an **overlay sheet** in `public/assets/equipment/` that has exactly the same 48×64 grid (480×256, 40 frames, anchor 0.5,0.94). `equipmentLayers(progression)` in `src/shared/appearance.ts` returns the overlay keys bottom→top in the order **armor → shoes → charm → weapon**.
+- **Phaser:** `src/game/paperDoll.ts` adds one sprite per overlay and, on every `POST_UPDATE`, copies the body's frame index, position, depth (+0.001 per layer), alpha, scale and visibility. Hub refreshes layers on `world:refresh`; equipping now emits `world:refresh`.
+- **React:** `Portrait` stacks the same overlays as CSS backgrounds (top layer first) and exposes `data-layers` for tests. `CharacterSummary.layers` feeds the select screen.
+- **Overlay generation:** `buildOverlay()` renders every frame with and without the item and keeps only the pixels that differ. The overlay therefore lines up pixel-perfect with the body, including attack/victory poses and the back view (weapon carried on the back).
+
+| Item (`ITEMS` id) | Slot | Overlay key | Look |
+|---|---|---|---|
+| wooden_sword (starter) | weapon | `eq_wooden_sword` | wooden blade |
+| training_blade (swordsman) | weapon | `eq_training_blade` | steel blade |
+| copper_gear_wrench | weapon | `eq_copper_wrench` | copper wrench |
+| oak_mace (guardian) | weapon | `eq_oak_mace` | mace with a round head |
+| apprentice_staff (mage) | weapon | `eq_apprentice_staff` | staff with a blue orb |
+| willow_bow (archer) | weapon | `eq_willow_bow` | bow |
+| apprentice_robe (starter) | armor | `eq_apprentice_robe` | cream mantle and collar; full cape from behind |
+| wind_boots | shoes | `eq_wind_boots` | green boots with white wings |
+
+New characters wear `wooden_sword` + `apprentice_robe`, so the default look is basic tunic + mantle + wooden sword, the same for both genders.
+
+**Adding a new piece of equipment:**
+1. Add the item in `src/shared/data/catalog.ts` with `visual: 'eq_<name>'`.
+2. Add `['eq_<name>', { …Look change… }, '<item id>']` to `EQUIPMENT_OVERLAYS` in the generator. Extend `drawWeapon` or `drawCharacter` if a new shape is needed.
+3. Run `npm run assets`.
+
+The unit test fails if an equippable item has no overlay sheet on the right grid.
+
+**Limitations:** overlays are generated against the male body and reused for female. The bodies share geometry, but in the back view the mantle can cover the ends of long hair. The charm slot has no visuals yet. Final art must provide overlays on the same grid; the diff method is only for the placeholders.
 
 ## 5. Saves and migration
 

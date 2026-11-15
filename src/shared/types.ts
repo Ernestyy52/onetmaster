@@ -78,6 +78,8 @@ export interface ItemDef {
   atk?: number;
   def?: number;
   heal?: number;
+  /** paper-doll overlay sheet shown on the character when equipped (public/assets/equipment) */
+  visual?: string;
   /** jobs allowed to equip it; omitted = every job */
   jobs?: JobId[];
   icon: string;
@@ -154,4 +156,6 @@ export interface CharacterSummary {
   level: number;
   job: JobId;
   jobLevel: number;
+  /** equipment overlay keys for the portrait, bottom to top */
+  layers: string[];
 }

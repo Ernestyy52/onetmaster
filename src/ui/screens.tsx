@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { MAX_SLOTS } from '../api/saveFormat';
+import { freshCharacter, MAX_SLOTS } from '../api/saveFormat';
 import { JOBS } from '../shared/data/jobs';
 import { NICKNAME_MAX, validateNickname } from '../shared/nickname';
-import { BASIC_OUTFIT_LABEL, DEFAULT_APPEARANCE, GENDERS } from '../shared/appearance';
+import { BASIC_OUTFIT_LABEL, DEFAULT_APPEARANCE, equipmentLayers, GENDERS } from '../shared/appearance';
 import type { Appearance, Gender } from '../shared/types';
 import { useGame } from '../state/store';
 import { createCharacter, newCharacter, pickCharacter, startOrContinue } from './actions';
 import { Icon, Portrait } from './components/common';
 import { SUBJECT_ORDER, SUBJECTS } from '../shared/data/catalog';
+/** What a new character wears (wooden sword + apprentice robe), so the preview matches the game. */
+const STARTER_LAYERS = equipmentLayers(freshCharacter(0));
 
 export function TitleScreen() {
   const p = useGame((s) => s.progression);
@@ -57,7 +59,7 @@ export function SelectScreen() {
               <li key={slot}>
                 {c ? (
                   <button className="btn char-slot" disabled={busy} onClick={() => void pickCharacter(slot)} data-testid={`slot-${slot}`}>
-                    <Portrait appearance={c.appearance} size={56} />
+                    <Portrait appearance={c.appearance} layers={c.layers} size={56} />
                     <span className="char-info">
                       <strong>{c.nickname}</strong>
                       <span className="muted small">Lv.{c.level} · {JOBS[c.job].name} Job Lv.{c.jobLevel}</span>
@@ -119,13 +121,13 @@ export function CreateScreen() {
           {GENDERS.map((g) => (
             <label key={g.id} className={`look ${look.gender === g.id ? 'sel' : ''}`} data-testid={`gender-${g.id}`}>
               <input type="radio" name="gender" value={g.id} checked={look.gender === g.id} onChange={() => setLook({ gender: g.id as Gender })} />
-              <Portrait appearance={{ gender: g.id }} size={72} />
+              <Portrait appearance={{ gender: g.id }} layers={STARTER_LAYERS} size={72} />
               <span>{g.label}</span>
             </label>
           ))}
         </fieldset>
         <div className="create-preview" data-testid="create-preview">
-          <Portrait appearance={look} size={96} />
+          <Portrait appearance={look} layers={STARTER_LAYERS} size={96} />
           <div>
             <strong>{check.ok ? check.value : 'ชื่อเล่น'}</strong>
             <div className="muted small">Lv.1 · {JOBS.novice.name}</div>

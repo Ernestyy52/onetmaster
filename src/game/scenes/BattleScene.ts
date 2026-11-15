@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { spriteKey } from '../../shared/appearance';
+import { equipmentLayers, spriteKey } from '../../shared/appearance';
+import { PaperDoll } from '../paperDoll';
 import { bus } from '../eventBus';
 import { isoToWorld } from '../../shared/iso';
 import { ENEMIES, type CombatEvent, type CombatState } from '../../shared/combat';
@@ -19,9 +20,12 @@ export class BattleScene extends Phaser.Scene {
   private enemyHome = { x: 0, y: 0 };
   private unsub: (() => void)[] = [];
 
+  private doll!: PaperDoll;
+
   constructor() {
     super('Battle');
   }
+
 
   create() {
     const { run, progression } = useGame.getState();
@@ -51,6 +55,8 @@ export class BattleScene extends Phaser.Scene {
     this.enemyHome = isoToWorld(1, -1);
     this.player = this.add.sprite(this.playerHome.x, this.playerHome.y, this.skin).setOrigin(0.5, 0.94).setDepth(this.playerHome.y);
     this.player.play(`${this.skin}-idle-right`);
+    this.doll = new PaperDoll(this, this.player);
+    if (progression) this.doll.setLayers(equipmentLayers(progression));
     this.enemy = this.add.sprite(this.enemyHome.x, this.enemyHome.y, this.enemyKey).setOrigin(0.5, 0.95).setDepth(this.enemyHome.y);
     this.enemy.play(this.enemyKey === 'wisp' ? 'wisp-float' : 'warden-idle');
     if (this.enemyKey === 'wisp') this.enemy.setScale(1.4);

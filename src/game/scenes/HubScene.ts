@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { spriteKey } from '../../shared/appearance';
+import { equipmentLayers, spriteKey } from '../../shared/appearance';
+import { PaperDoll } from '../paperDoll';
 import { bus, type InteractTarget } from '../eventBus';
 import { anchors } from './BootScene';
 import { findPath, isoToWorld, tiledObjectToTile, worldToTile, type Pt } from '../../shared/iso';
@@ -27,6 +28,7 @@ export class HubScene extends Phaser.Scene {
   private map!: TiledMap;
   private blocked = new Set<string>();
   private player!: Phaser.GameObjects.Sprite;
+  private doll!: PaperDoll;
   private skin = 'player_swordsman';
   private facing: Dir = 'down';
   private path: Pt[] = [];
@@ -219,6 +221,8 @@ export class HubScene extends Phaser.Scene {
     const w = isoToWorld(tile.x, tile.y);
     this.player = this.add.sprite(w.x, w.y, this.skin).setOrigin(0.5, 0.94);
     this.player.play(`${this.skin}-idle-down`);
+    this.doll = new PaperDoll(this, this.player);
+    if (prog) this.doll.setLayers(equipmentLayers(prog));
   }
 
   // ───────── input ─────────
@@ -354,6 +358,7 @@ export class HubScene extends Phaser.Scene {
       this.player.setTexture(skin);
       this.player.play(`${skin}-idle-${this.facing}`);
     }
+    this.doll.setLayers(equipmentLayers(prog));
   }
 
   private enterBattle(sourceId: string | null) {

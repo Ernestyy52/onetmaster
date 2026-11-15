@@ -25,16 +25,21 @@ export function Icon({ name, size = 32, title }: { name: IconName | string; size
   );
 }
 
-export function Portrait({ appearance, size = 56 }: { appearance: Appearance; size?: number }) {
+/** Character portrait: body sheet plus equipment overlays (bottom→top), all on the same frame. */
+export function Portrait({ appearance, layers = [], size = 56 }: { appearance: Appearance; layers?: string[]; size?: number }) {
   const scale = size / 48;
+  // CSS draws the first background on top, so list overlays top-first, body last.
+  const images = [...layers].reverse().map((k) => `url(${BASE}assets/equipment/${k}.png)`);
+  images.push(`url(${BASE}assets/sprites/${spriteKey(appearance)}.png)`);
   return (
     <span
       className="portrait"
       aria-hidden
+      data-layers={layers.join(' ')}
       style={{
         width: size,
         height: size,
-        backgroundImage: `url(${BASE}assets/sprites/${spriteKey(appearance)}.png)`,
+        backgroundImage: images.join(', '),
         backgroundSize: `${480 * scale}px ${256 * scale}px`,
         backgroundPosition: `0px ${-8 * scale}px`,
       }}

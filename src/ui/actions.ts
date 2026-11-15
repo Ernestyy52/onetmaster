@@ -364,6 +364,7 @@ export async function equip(instanceId: string) {
   const p = await guard(() => api().equip(instanceId));
   if (p) {
     S().set({ progression: p });
+    bus.emit('world:refresh'); // redraw equipment on the character
     toast('สวมใส่แล้ว');
   }
 }

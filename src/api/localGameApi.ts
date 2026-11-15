@@ -4,7 +4,7 @@
 // client code does not change when the real backend arrives. NOTE: in this local mode
 // the answer keys still ship inside the JS bundle — real deployments must move this file's
 // logic server-side.
-import { isAppearance, normalizeAppearance } from '../shared/appearance';
+import { equipmentLayers, isAppearance, normalizeAppearance } from '../shared/appearance';
 import { ITEMS } from '../shared/data/catalog';
 import { JOBS } from '../shared/data/jobs';
 import { QUESTION_BANK } from '../shared/data/questions';
@@ -128,7 +128,7 @@ export class LocalGameApi implements GameApi {
       .sort((a, b) => a.slot - b.slot)
       .map((c) => ({
         slot: c.slot, nickname: c.profile!.nickname, appearance: c.profile!.appearance,
-        level: c.level, job: c.job, jobLevel: jobProgress(c).level,
+        level: c.level, job: c.job, jobLevel: jobProgress(c).level, layers: equipmentLayers(c),
       }));
   }
 

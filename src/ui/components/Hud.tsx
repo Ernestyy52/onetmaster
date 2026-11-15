@@ -3,6 +3,7 @@ import { bus } from '../../game/eventBus';
 import { JOBS } from '../../shared/data/jobs';
 import { jobLevelBar } from '../../shared/jobs';
 import { combatStats } from '../../shared/progression';
+import { equipmentLayers } from '../../shared/appearance';
 import { levelProgress } from '../../shared/progression';
 import { activeQuest, nextAvailableQuest, prologueComplete, QUESTS } from '../../shared/story';
 import { useGame } from '../../state/store';
@@ -22,7 +23,7 @@ export function Hud({ battle = false }: { battle?: boolean }) {
   return (
     <div className="hud-tl">
       <div className="hud-card panel" data-testid="hud">
-        <Portrait appearance={p.profile.appearance} size={52} />
+        <Portrait appearance={p.profile.appearance} layers={equipmentLayers(p)} size={52} />
         <div className="hud-stats">
           <div className="hud-name">
             <strong>{p.profile.nickname}</strong>

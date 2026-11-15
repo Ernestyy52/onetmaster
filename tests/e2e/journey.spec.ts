@@ -171,6 +171,11 @@ test('full prototype journey', async ({ page }) => {
   await page.getByTestId('item-copper_gear_wrench').click();
   await page.getByTestId('btn-equip').click();
   await expect(page.getByTestId('inventory')).toContainText('สวมใส่อยู่');
+  // the equipped item is drawn on the HUD portrait and on the character in the world
+  await expect(page.locator('[data-testid=hud] .portrait')).toHaveAttribute('data-layers', /eq_copper_wrench/);
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { __game: { scene: { getScene(k: string): { doll: { layerKeys: string[] } } } } }).__game.scene.getScene('Hub').doll.layerKeys))
+    .toContain('eq_copper_wrench');
   await shot(page, '4-inventory');
   await page.getByRole('button', { name: 'ปิด' }).click();
 
@@ -202,6 +207,7 @@ test('full prototype journey', async ({ page }) => {
   await expect(page.getByTestId('job-current')).toContainText('นักเวท');
   await page.getByRole('button', { name: 'ปิด' }).click();
   await expect(page.getByTestId('hud-job')).toContainText('นักเวท');
+  await expect(page.locator('[data-testid=hud] .portrait')).toHaveAttribute('data-layers', /eq_apprentice_staff/);
   await interactWith(page, 'enemy_fog_2');
   expect(await fight(page, { skill: 'insight_bolt' })).toBe(true);
   await expect(page.getByTestId('battle-result')).toContainText('Job XP');

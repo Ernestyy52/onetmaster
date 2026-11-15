@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { LocalGameApi, MemoryStorage } from '../../src/api/localGameApi';
 import { SAVE_KEY_V1, SAVE_KEY_V2 } from '../../src/api/saveFormat';
-import { normalizeAppearance, PLAYER_SPRITES, spriteKey } from '../../src/shared/appearance';
+import { equipmentLayers, normalizeAppearance, PLAYER_SPRITES, spriteKey } from '../../src/shared/appearance';
+import { ITEMS } from '../../src/shared/data/catalog';
 import type { RunView } from '../../src/api/types';
 import { applyAction, createCombat, ENEMIES, type CombatState, type PlayerAction } from '../../src/shared/combat';
 import { FIRST_JOBS, JOBS } from '../../src/shared/data/jobs';
@@ -316,5 +317,39 @@ describe('appearance: gender with one shared basic outfit', () => {
     raw.characters[0].profile.appearance = 'mage';
     storage.setItem(SAVE_KEY_V2, JSON.stringify(raw));
     expect((await newApi(storage).api.getProgression()).profile?.appearance).toEqual({ gender: 'male' });
+  });
+});
+
+describe('equipment is drawn on the character (paper doll)', () => {
+  const manifest = JSON.parse(readFileSync('public/assets/manifest.json', 'utf8')) as { assets: { key: string; file: string; width: number; height: number; frameWidth?: number; frameHeight?: number }[] };
+
+  it('every equippable item has an overlay sheet on the player frame grid', () => {
+    for (const item of Object.values(ITEMS).filter((i) => i.kind === 'equipment')) {
+      expect(item.visual, item.id).toBeTruthy();
+      const entry = manifest.assets.find((a) => a.key === item.visual)!;
+      expect(entry, item.visual).toBeDefined();
+      expect([entry.width, entry.height, entry.frameWidth, entry.frameHeight]).toEqual([480, 256, 48, 64]);
+    }
+  });
+
+  it('layers follow what is equipped, bottom to top (armor, shoes, charm, weapon)', async () => {
+    const { api } = newApi();
+    let p = await api.createCharacter(1, 'ต้นกล้า', { gender: 'female' }, 'c');
+    expect(equipmentLayers(p)).toEqual(['eq_apprentice_robe', 'eq_wooden_sword']);
+    expect((await api.listCharacters())[0].layers).toEqual(['eq_apprentice_robe', 'eq_wooden_sword']);
+
+    await finishPrologue(api);
+    p = await api.getProgression();
+    const boots = p.inventory.find((i) => i.itemId === 'wind_boots')!;
+    const wrench = p.inventory.find((i) => i.itemId === 'copper_gear_wrench')!;
+    await api.equip(boots.instanceId);
+    p = await api.equip(wrench.instanceId);
+    expect(equipmentLayers(p)).toEqual(['eq_apprentice_robe', 'eq_wind_boots', 'eq_copper_wrench']);
+
+    // changing job equips that job's starter weapon, which replaces the weapon layer
+    p = await api.changeJob('archer', 'to-archer');
+    expect(equipmentLayers(p)).toEqual(['eq_apprentice_robe', 'eq_wind_boots', 'eq_willow_bow']);
+    p = await api.unequip('weapon');
+    expect(equipmentLayers(p)).toEqual(['eq_apprentice_robe', 'eq_wind_boots']);
   });
 });
