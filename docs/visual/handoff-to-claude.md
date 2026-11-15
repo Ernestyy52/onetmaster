@@ -6,8 +6,8 @@
 
 - `docs/visual/characters/m1-character-spec.md` และ `m1-lineup-concept.png` — **concept** ของ novice และ 4 อาชีพ; ไม่ใช่ sprite sheet
 - `docs/visual/characters/m1-mobile-readability-preview.png` — **concept QA** ที่ย่อ silhouette ลงกรอบ 48×64; ไม่ใช่ภาพในเกม
-- `docs/visual/characters/m1-create-character-ui.md` — **concept** ของหน้าเลือกช่อง/สร้างตัว/เปลี่ยนอาชีพและสถานะ UI
-- `docs/visual/characters/m1-visual-qa.md` — ผลตรวจ UI หลังเพิ่มตัวเลือกเพศที่ 360×800 และ 1366×768, body 2 แบบ, overlay อุปกรณ์ 8 แบบ และจุดที่ยังต้องปรับ
+- `docs/visual/characters/m1-create-character-ui.md` — สเปกหน้าเลือกช่อง/สร้างตัว/เปลี่ยนอาชีพและสถานะ UI ที่ตรวจเทียบ M1 แล้ว
+- `docs/visual/characters/m1-visual-qa.md` — ผลตรวจ UI, body 2 แบบ, overlay อุปกรณ์ 8 แบบ, ไอคอน และข้อจำกัดของการตรวจ
 - `docs/visual/asset-manifest.md` — บันทึก body 2 ชุด, overlay อุปกรณ์ 8 ชุด, `player_mage` ที่ยังโหลดแต่ไม่ถูกเลือกใช้ และ `asset_id` ของภาพ concept สองไฟล์. ไฟล์ที่ ChatGPT ผลิตในแพ็กเกจนี้ **ไม่มี asset ใหม่ที่ integration-ready**
 
 ## 2. สัญญานำเข้า
@@ -16,10 +16,10 @@ M1 ใช้ `Appearance = {gender}` แยกจาก `JobId`; ชาย=`play
 
 ## 3. งาน Claude
 
-สำหรับ **M1** รักษา `Appearance` แยกจาก `JobId` ตาม ADR; สร้างตัวเป็น novice, แล้วเปลี่ยนอาชีพตามกฎระบบของ Claude. ไม่ต้องเชื่อมภาพ concept เป็น sprite หรือสร้าง sheet อาชีพเพิ่มเพื่อปิด M1. ให้ทดสอบ body+overlay ใน Hub/Battle/portrait โดยเฉพาะการเดินและโจมตี 4 ทิศและการบังหลัง prop ใน renderer ปกติ/Canvas; ไฟล์ `player_mage` ยังไม่เหมาะเป็น body กับ overlay. หน้าสร้างตัวปัจจุบันอยู่ครบใน viewport ที่ตรวจ; ก่อนรับบนมือถือจริงให้บวก safe area กับ `.screen` และตรวจบนอุปกรณ์จริง. Claude เพิ่มไอคอน `shield`/`staff`/`bow`/`mace` ใน commit `daf527e`; ตรวจ atlas, index และ key ตรงกัน. แผงอาชีพที่ 360×800 แสดงไอคอนทั้งสามตรงบทบาท; ยังต้องดูไอคอนไอเทมใหม่เมื่อไอเทมอยู่ในกระเป๋า. ไม่แก้กฎ gameplay จากเอกสารภาพนี้
+สำหรับ **M1** รักษา `Appearance` แยกจาก `JobId` ตาม ADR; สร้างตัวเป็น novice แล้วเปลี่ยนอาชีพตามกฎระบบของ Claude. `src/ui/styles.css` บวก `safe-area-inset-*` ให้ `.screen` และ `.modal-backdrop` แล้ว; นำการแก้นี้เข้า branch ที่ Claude พัฒนาต่อ. ไอคอน `shield`/`staff`/`bow`/`mace` อยู่ใน commit `daf527e`; atlas, index และ key ตรงกัน และแผงอาชีพ 360×800 แสดงถูกบทบาท. Body+overlay ใน Hub/Battle/portrait ใช้สัญญาเดียวกัน; `player_mage` ยังไม่เหมาะเป็น body กับ overlay. ภาพ concept ไม่ใช่ sprite runtime และไม่ต้องเชื่อมเข้าระบบ
 
 ## 4. ตรวจรับและข้อจำกัด
 
-ตรวจแล้วว่าภาพ concept มี 5 บทบาทแยกชัด ไม่มีข้อความ/ลายน้ำ และภาพย่อช่วยดู silhouette ที่กรอบเกม. เปิด UI จริงที่ 360×800 และ 1366×768 หลังเปลี่ยนเป็นเลือกเพศอย่างเดียว: ตัวเลือกและ preview ตรงกัน, ปุ่มท้ายหน้าอยู่ในจอ, ไม่มีล้นแนวนอน; เซฟหญิงเดิมแสดง `player_female_basic` + เสื้อคลุม/ดาบไม้ใน HUD/Hub รวม Canvas fallback ท่ายืนที่ 360×800. ตรวจ body 2 และ overlay 8 sheet มี 40 เฟรมไม่ว่างและขนาดตรง manifest. รายละเอียด/ข้อจำกัดอยู่ใน `m1-visual-qa.md`. ยังไม่ได้ตรวจ overlay ระหว่าง animation ทุกทิศ/การบังหลังฉาก, safe area มือถือจริง หรือการเปลี่ยนอาชีพหลังจบบทนำ. ภาพ concept ต้องวาดใหม่ลงกริดและผ่าน QA ก่อนใช้ในเกม
+ตรวจแล้วว่าภาพ concept มี 5 บทบาทแยกชัด ไม่มีข้อความ/ลายน้ำ และภาพย่อช่วยดู silhouette ที่กรอบเกม. UI สร้างตัวที่ 360×800 และ 1366×768 อยู่ครบ, ปุ่มแตะตามสเปก; ตัวละครหญิงพร้อมเสื้อคลุม/ดาบไม้แสดงใน HUD, Hub, Battle และ Canvas fallback. ตรวจเดินหันขวา/หันหลัง, บังหลังเสา และเฟรมโจมตีใน Battle ที่ 360×800; atlas อาชีพแสดงตรงบทบาท. Body 2 กับ overlay 8 sheet มี 40 เฟรมตรง manifest. `npm run lint`, `npm run typecheck` และ 56 unit tests ผ่าน; รายละเอียดอยู่ใน `m1-visual-qa.md`. ยังไม่ได้ใช้อุปกรณ์ทุกชุดหรือมือถือมีขอบเว้าจริงในการตรวจ; เก็บไว้ในรอบภาพตัวจริง/QA อุปกรณ์. ภาพ concept ต้องวาดใหม่ลงกริดและผ่าน QA ก่อนใช้ในเกม
 
 ข้อความส่งต่อ: อ่าน `docs/visual/handoff-to-claude.md` และไฟล์ที่อ้างอิง ใช้เฉพาะ asset ที่เป็น `integration-ready` กับ milestone ปัจจุบัน รักษา `asset_id`/anchor/layer ตาม manifest; หากสัญญาขัดกับโค้ดจริง ให้รายงานจุดขัดกันก่อนแก้สัญญา
