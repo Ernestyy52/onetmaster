@@ -35,7 +35,7 @@
 | `owl` | `sprites/owl.png` | 96×64; 48×64 × 2 idle | .5,.97 | `spawns/npc_owl`; จุดชนอยู่ใน `collision`; NPC | integration-ready |
 | `wisp` | `sprites/wisp.png` | 192×48; 48×48 × 4 float | .5,.95 | `spawns` enemy; จุดชน/ระยะโต้ตอบจากตำแหน่ง ไม่ใช่ PNG | integration-ready |
 | `warden` | `sprites/warden.png` | 384×112; 96×112 × 4 (idle 2, attack, hurt) | .5,.95 | `spawns` boss; แสดงที่ scale .8; จุดชนปรับตาม quest | integration-ready |
-| `icons` | `icons/icons.png` | 416×32; 32×32 × 13 | ไม่ใช้ | React CSS sprite สำหรับไอเทม/ทักษะ; ไม่มีจุดชน | integration-ready |
+| `icons` | `icons/icons.png` | 544×32; 32×32 × 17 | ไม่ใช้ | React CSS sprite สำหรับไอเทม/ทักษะ/อาชีพ; เพิ่ม `shield`, `staff`, `bow`, `mace` ต่อท้าย atlas เดิม; ไม่มีจุดชน | integration-ready |
 | `fx_hit` | `effects/hit.png` | 128×32; 32×32 × 4 | ค่า default ของ scene | Battle effect 16 fps; ไม่มีจุดชน | integration-ready |
 | `hub` | `maps/hub.json` | **23×23** tile, 64×32; ไม่มี frame | Tiled object origin ตาม `iso.ts` | ฉาก Hub, layer/collision ตาม `scenes/hub-pilot.md`; manifest เดิมระบุ 22×22 ผิด — แก้เป็น 23×23 แล้วใน M1 | integration-ready |
 
