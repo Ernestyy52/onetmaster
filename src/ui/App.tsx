@@ -177,7 +177,7 @@ export function App() {
         )}
         <RewardModal />
         <Toasts />
-        {error && <div className="error-banner" role="alert">{error}</div>}
+        {error && screen !== 'auth' && <div className="error-banner" role="alert">{error}</div>}
       </div>
     </div>
   );

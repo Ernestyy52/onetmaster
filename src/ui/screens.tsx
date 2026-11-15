@@ -53,6 +53,11 @@ export function AuthScreen() {
   const [busy, setBusy] = useState(false);
   const error = useGame((s) => s.error);
   const valid = /\S+@\S+\.\S+/.test(email) && password.length >= 8;
+  const retry = async () => {
+    setBusy(true);
+    useGame.getState().set({ error: null });
+    try { await boot(); } finally { setBusy(false); }
+  };
   const submit = async () => {
     setBusy(true);
     setMsg(null);
@@ -84,9 +89,10 @@ export function AuthScreen() {
           <span>รหัสผ่าน (อย่างน้อย 8 ตัว)</span>
           <input type="password" autoComplete={mode === 'in' ? 'current-password' : 'new-password'} value={password} onChange={(e) => setPassword(e.target.value)} data-testid="input-password" />
         </label>
-        {(msg || error) && <p className={`field-msg ${msg?.bad || (!msg && error) ? 'bad' : ''}`} role="status">{msg?.text ?? error}</p>}
-        <button type="submit" className="btn primary big" disabled={!valid || busy} data-testid="btn-auth">{mode === 'in' ? 'เข้าสู่ระบบ' : 'สร้างบัญชี'}</button>
-        <button type="button" className="btn ghost" onClick={() => { setMode(mode === 'in' ? 'up' : 'in'); setMsg(null); }}>
+        {(msg || error) && <p className={`field-msg ${msg?.bad || (!msg && error) ? 'bad' : ''}`} role={msg?.bad || (!msg && error) ? 'alert' : 'status'}>{msg?.text ?? error}</p>}
+        {error && !msg && <button type="button" className="btn" disabled={busy} onClick={() => void retry()}>ลองเชื่อมต่ออีกครั้ง</button>}
+        <button type="submit" className="btn primary big" disabled={!valid || busy} data-testid="btn-auth">{busy ? 'กำลังดำเนินการ…' : mode === 'in' ? 'เข้าสู่ระบบ' : 'สร้างบัญชี'}</button>
+        <button type="button" className="btn ghost" disabled={busy} onClick={() => { setMode(mode === 'in' ? 'up' : 'in'); setMsg(null); }}>
           {mode === 'in' ? 'ยังไม่มีบัญชี? สร้างบัญชี' : 'มีบัญชีแล้ว? เข้าสู่ระบบ'}
         </button>
       </form>
