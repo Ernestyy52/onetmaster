@@ -24,7 +24,7 @@ describe('LocalGameApi (server contract)', () => {
   beforeEach(async () => {
     storage = new MemoryStorage();
     api = new LocalGameApi(storage, QUESTION_BANK, () => 0.3);
-    await api.createCharacter(1, '  ทดสอบ  ', { gender: 'female', outfit: 'robe' }, 'create-1');
+    await api.createCharacter(1, '  ทดสอบ  ', { gender: 'female' }, 'create-1');
   });
 
   it('never sends the answer key before answering', async () => {

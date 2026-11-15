@@ -651,14 +651,11 @@ buildCharacter('player_mage', {
   skin: hex('#efc8a4'), hair: hex('#1f1f2e'), tunic: hex('#7d4fd6'), tunicDark: hex('#5b36a8'), pants: hex('#3d3550'),
   boots: hex('#5a3a22'), accent: hex('#ffd166'), robe: true, hat: true, weapon: 'staff',
 });
-// Female variants (same frame grid / anchor contract as the sheets above).
-buildCharacter('player_female_adventurer', {
-  skin: hex('#f3cfae'), hair: hex('#7a3b2a'), tunic: hex('#2f9e8f'), tunicDark: hex('#217367'), pants: hex('#3d3550'),
-  boots: hex('#6b4426'), accent: hex('#ff8fab'), robe: false, hat: false, weapon: 'sword', longHair: true, ribbon: true, skirt: true,
-});
-buildCharacter('player_female_robe', {
-  skin: hex('#e9c29c'), hair: hex('#2b2140'), tunic: hex('#c2507a'), tunicDark: hex('#93375a'), pants: hex('#3d3550'),
-  boots: hex('#5a3a22'), accent: hex('#ffd166'), robe: true, hat: true, weapon: 'staff', longHair: true,
+// Female body with the SAME basic starter outfit as player_swordsman (identical colours, tunic,
+// boots and training sword) — only the hair differs. Outfits are not chosen at creation.
+buildCharacter('player_female_basic', {
+  skin: hex('#f6d2b0'), hair: hex('#5a3a22'), tunic: hex('#3b5bdb'), tunicDark: hex('#2b44a8'), pants: hex('#3d3550'),
+  boots: hex('#6b4426'), accent: hex('#e8c25a'), robe: false, hat: false, weapon: 'sword', longHair: true,
 });
 buildOwl();
 buildWisp();

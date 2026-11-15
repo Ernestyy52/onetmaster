@@ -11,7 +11,7 @@ import { canChangeJob, jobBonus, jobLevelForXp } from '../../src/shared/jobs';
 import { validateNickname } from '../../src/shared/nickname';
 import { combatStats } from '../../src/shared/progression';
 
-const MAGE = { gender: 'male', outfit: 'robe' } as const;
+const MAGE = { gender: 'male' } as const;
 const V1_FIXTURE = readFileSync('tests/unit/fixtures/save-v1-midboss.json', 'utf8');
 const key = (v: RunView) => QUESTION_BANK.find((q) => q.id === v.turn!.question.id)!.answer_key;
 
@@ -49,7 +49,7 @@ describe('save migration v1 → v2', () => {
 
     const chars = await api.listCharacters();
     expect(chars).toHaveLength(1);
-    expect(chars[0]).toMatchObject({ slot: 1, nickname: 'ต้นกล้า', appearance: { gender: 'male', outfit: 'robe' }, level: old.progression.level, job: 'novice' });
+    expect(chars[0]).toMatchObject({ slot: 1, nickname: 'ต้นกล้า', appearance: { gender: 'male' }, level: old.progression.level, job: 'novice' });
     // 1 fog wisp already defeated → novice job XP credited retroactively
     expect(chars[0].jobLevel).toBe(jobLevelForXp('novice', ENEMIES.fog_wisp.xp));
 
@@ -151,7 +151,7 @@ describe('character slots', () => {
     const mastery = (await api.getProgression()).mastery;
     expect(Object.keys(mastery)).toHaveLength(1);
 
-    const b = await api.createCharacter(2, 'ใบไม้', { gender: 'female', outfit: 'adventurer' }, 'c5');
+    const b = await api.createCharacter(2, 'ใบไม้', { gender: 'female' }, 'c5');
     expect(b.slot).toBe(2);
     expect(b.level).toBe(1);
     expect(b.mastery).toEqual(mastery); // account-wide
@@ -280,41 +280,41 @@ describe('job skills differ in combat', () => {
   });
 });
 
-describe('appearance: gender + outfit', () => {
-  it('each gender/outfit pair has its own sprite sheet in the manifest', () => {
+describe('appearance: gender with one shared basic outfit', () => {
+  it('each gender has its own sheet in the manifest, both in the same basic outfit', () => {
     const manifest = JSON.parse(readFileSync('public/assets/manifest.json', 'utf8')) as { assets: { key: string; frameWidth?: number; frameHeight?: number; anchor?: { x: number; y: number } }[] };
-    const keys = new Set<string>();
-    for (const gender of ['male', 'female'] as const)
-      for (const outfit of ['adventurer', 'robe'] as const) {
-        const key = spriteKey({ gender, outfit });
-        keys.add(key);
-        const entry = manifest.assets.find((a) => a.key === key)!;
-        expect(entry, key).toBeDefined();
-        expect([entry.frameWidth, entry.frameHeight, entry.anchor]).toEqual([48, 64, { x: 0.5, y: 0.94 }]);
-      }
-    expect(keys.size).toBe(4);
-    expect(PLAYER_SPRITES.sort()).toEqual([...keys].sort());
-    // male sheets keep their original asset ids
-    expect(spriteKey({ gender: 'male', outfit: 'adventurer' })).toBe('player_swordsman');
+    const male = spriteKey({ gender: 'male' });
+    const female = spriteKey({ gender: 'female' });
+    expect(male).toBe('player_swordsman'); // original asset id kept
+    expect(female).toBe('player_female_basic');
+    for (const key of [male, female]) {
+      const entry = manifest.assets.find((a) => a.key === key)!;
+      expect(entry, key).toBeDefined();
+      expect([entry.frameWidth, entry.frameHeight, entry.anchor]).toEqual([48, 64, { x: 0.5, y: 0.94 }]);
+    }
+    expect(PLAYER_SPRITES.sort()).toEqual([female, male].sort());
   });
 
-  it('reads the old string form from saves written before gender existed', () => {
-    expect(normalizeAppearance('mage')).toEqual({ gender: 'male', outfit: 'robe' });
-    expect(normalizeAppearance('swordsman')).toEqual({ gender: 'male', outfit: 'adventurer' });
-    expect(normalizeAppearance({ gender: 'female', outfit: 'robe' })).toEqual({ gender: 'female', outfit: 'robe' });
-    expect(normalizeAppearance({ gender: 'x' })).toEqual({ gender: 'male', outfit: 'adventurer' });
+  it('reads older appearance forms from saves', () => {
+    expect(normalizeAppearance('mage')).toEqual({ gender: 'male' });
+    expect(normalizeAppearance('swordsman')).toEqual({ gender: 'male' });
+    expect(normalizeAppearance({ gender: 'female', outfit: 'robe' })).toEqual({ gender: 'female' });
+    expect(normalizeAppearance({ gender: 'x' })).toEqual({ gender: 'male' });
   });
 
-  it('the API stores gender, rejects invalid values, and early v2 saves are upgraded on load', async () => {
+  it('the API stores gender, rejects invalid values, and older saves are upgraded on load', async () => {
     const { api, storage } = newApi();
-    await expect(api.createCharacter(1, 'ต้นกล้า', { gender: 'robot', outfit: 'robe' } as never, 'bad')).rejects.toThrow();
-    const p = await api.createCharacter(1, 'ต้นกล้า', { gender: 'female', outfit: 'adventurer' }, 'ok');
-    expect(p.profile?.appearance).toEqual({ gender: 'female', outfit: 'adventurer' });
+    await expect(api.createCharacter(1, 'ต้นกล้า', { gender: 'robot' } as never, 'bad')).rejects.toThrow();
+    const p = await api.createCharacter(1, 'ต้นกล้า', { gender: 'female' }, 'ok');
+    expect(p.profile?.appearance).toEqual({ gender: 'female' });
     expect((await api.listCharacters())[0].appearance.gender).toBe('female');
 
     const raw = JSON.parse(storage.getItem(SAVE_KEY_V2)!);
+    raw.characters[0].profile.appearance = { gender: 'female', outfit: 'robe' };
+    storage.setItem(SAVE_KEY_V2, JSON.stringify(raw));
+    expect((await newApi(storage).api.getProgression()).profile?.appearance).toEqual({ gender: 'female' });
     raw.characters[0].profile.appearance = 'mage';
     storage.setItem(SAVE_KEY_V2, JSON.stringify(raw));
-    expect((await newApi(storage).api.getProgression()).profile?.appearance).toEqual({ gender: 'male', outfit: 'robe' });
+    expect((await newApi(storage).api.getProgression()).profile?.appearance).toEqual({ gender: 'male' });
   });
 });

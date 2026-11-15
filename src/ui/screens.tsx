@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { MAX_SLOTS } from '../api/saveFormat';
 import { JOBS } from '../shared/data/jobs';
 import { NICKNAME_MAX, validateNickname } from '../shared/nickname';
-import { DEFAULT_APPEARANCE, GENDERS, OUTFITS } from '../shared/appearance';
-import type { Appearance, Gender, Outfit } from '../shared/types';
+import { BASIC_OUTFIT_LABEL, DEFAULT_APPEARANCE, GENDERS } from '../shared/appearance';
+import type { Appearance, Gender } from '../shared/types';
 import { useGame } from '../state/store';
 import { createCharacter, newCharacter, pickCharacter, startOrContinue } from './actions';
 import { Icon, Portrait } from './components/common';
@@ -118,19 +118,9 @@ export function CreateScreen() {
           <legend>เพศของตัวละคร</legend>
           {GENDERS.map((g) => (
             <label key={g.id} className={`look ${look.gender === g.id ? 'sel' : ''}`} data-testid={`gender-${g.id}`}>
-              <input type="radio" name="gender" value={g.id} checked={look.gender === g.id} onChange={() => setLook({ ...look, gender: g.id as Gender })} />
-              <Portrait appearance={{ ...look, gender: g.id }} size={72} />
+              <input type="radio" name="gender" value={g.id} checked={look.gender === g.id} onChange={() => setLook({ gender: g.id as Gender })} />
+              <Portrait appearance={{ gender: g.id }} size={72} />
               <span>{g.label}</span>
-            </label>
-          ))}
-        </fieldset>
-        <fieldset className="looks" data-testid="pick-outfit">
-          <legend>ชุด</legend>
-          {OUTFITS.map((o) => (
-            <label key={o.id} className={`look ${look.outfit === o.id ? 'sel' : ''}`} data-testid={`outfit-${o.id}`}>
-              <input type="radio" name="outfit" value={o.id} checked={look.outfit === o.id} onChange={() => setLook({ ...look, outfit: o.id as Outfit })} />
-              <Portrait appearance={{ ...look, outfit: o.id }} size={56} />
-              <span>{o.label}</span>
             </label>
           ))}
         </fieldset>
@@ -139,8 +129,8 @@ export function CreateScreen() {
           <div>
             <strong>{check.ok ? check.value : 'ชื่อเล่น'}</strong>
             <div className="muted small">Lv.1 · {JOBS.novice.name}</div>
-            <div className="muted small">{GENDERS.find((g) => g.id === look.gender)!.label} · {OUTFITS.find((o) => o.id === look.outfit)!.label}</div>
-            <div className="muted small">เพศและชุดไม่มีผลต่อความสามารถ · เลือกอาชีพได้หลังจบบทนำ</div>
+            <div className="muted small">{GENDERS.find((g) => g.id === look.gender)!.label} · {BASIC_OUTFIT_LABEL}</div>
+            <div className="muted small">ทุกคนเริ่มด้วยชุดพื้นฐานเดียวกัน · เพศไม่มีผลต่อความสามารถ · เลือกอาชีพได้หลังจบบทนำ</div>
           </div>
         </div>
         <button type="submit" className="btn primary big" disabled={!check.ok || busy} data-testid="btn-create">เข้าสู่โถงใหญ่</button>

@@ -1,43 +1,40 @@
-// Character appearance: gender picks the body art, outfit is cosmetic. Neither changes stats —
-// jobs do that. Sprite keys must exist in public/assets/manifest.json (48×64, 4 dirs × 10 frames).
-import type { Appearance, Gender, Outfit } from './types';
+// Character appearance: gender picks the body sprite. Every character starts in the SAME basic
+// outfit (male and female sheets share it; only the hair differs). Appearance never changes stats —
+// jobs do. Sprite keys must exist in public/assets/manifest.json (48×64, 4 dirs × 10 frames).
+import type { Appearance, Gender } from './types';
 
 export const GENDERS: { id: Gender; label: string }[] = [
   { id: 'male', label: 'ชาย' },
   { id: 'female', label: 'หญิง' },
 ];
 
-export const OUTFITS: { id: Outfit; label: string }[] = [
-  { id: 'adventurer', label: 'ชุดนักผจญภัย' },
-  { id: 'robe', label: 'ชุดคลุมเวท' },
-];
+/** Name shown for the shared starter outfit. */
+export const BASIC_OUTFIT_LABEL = 'ชุดพื้นฐาน';
 
-/** Male sheets keep their original asset ids (visual contract: never rename an asset_id). */
-const SPRITES: Record<Gender, Record<Outfit, string>> = {
-  male: { adventurer: 'player_swordsman', robe: 'player_mage' },
-  female: { adventurer: 'player_female_adventurer', robe: 'player_female_robe' },
+/** Male keeps the original asset id (visual contract: never rename an asset_id). */
+const SPRITES: Record<Gender, string> = {
+  male: 'player_swordsman',
+  female: 'player_female_basic',
 };
 
-export const PLAYER_SPRITES: string[] = Object.values(SPRITES).flatMap((o) => Object.values(o));
+export const PLAYER_SPRITES: string[] = Object.values(SPRITES);
 
-export const DEFAULT_APPEARANCE: Appearance = { gender: 'male', outfit: 'adventurer' };
+export const DEFAULT_APPEARANCE: Appearance = { gender: 'male' };
 
 export function isAppearance(a: unknown): a is Appearance {
   const v = a as Appearance | null;
-  return !!v && typeof v === 'object' && (v.gender === 'male' || v.gender === 'female') && (v.outfit === 'adventurer' || v.outfit === 'robe');
+  return !!v && typeof v === 'object' && (v.gender === 'male' || v.gender === 'female');
 }
 
 /**
- * Accepts the current object form and the pre-gender string form ('swordsman' | 'mage') used by
- * saves written before this change. Anything else falls back to the default.
+ * Accepts the current form, earlier `{gender, outfit}` objects (outfit is dropped) and the old
+ * string form ('swordsman' | 'mage') from saves written before gender existed (→ male).
  */
 export function normalizeAppearance(raw: unknown): Appearance {
-  if (isAppearance(raw)) return { gender: raw.gender, outfit: raw.outfit };
-  if (raw === 'mage') return { gender: 'male', outfit: 'robe' };
+  if (isAppearance(raw)) return { gender: raw.gender };
   return { ...DEFAULT_APPEARANCE };
 }
 
 export function spriteKey(a: Appearance | null | undefined): string {
-  const n = normalizeAppearance(a);
-  return SPRITES[n.gender][n.outfit];
+  return SPRITES[normalizeAppearance(a).gender];
 }

@@ -161,7 +161,7 @@ interface Party { id: string; leaderId: string; memberIds: string[] /* 2–4 */;
 - **M3 avatar ผู้เล่นอื่น:** ใช้ sprite/anim เดิม, depth ตาม world Y เหมือนผู้เล่นหลัก; ป้ายชื่อเป็น Phaser text ขนาดเล็กหรือ React overlay — ต้องทดสอบบน 360×800 ไม่ให้ป้ายบังจุดโต้ตอบ
 - **บั๊กสัญญาที่พบโดย visual audit:** metadata `hub` ใน `public/assets/manifest.json` ระบุ 22×22 แต่แผนที่จริง 23×23 และชื่อ object ใน `occluders` ซ้ำ 4 ชื่อ — M3 จะอ้าง zone/object ด้วย id จึงต้องแก้ที่ generator (`tools/assets/generate-placeholders.ts`, `tools/maps/generate-hub.ts`) และผลลัพธ์พร้อมกัน; กำหนดทำต้น M1 เป็นงานเล็ก ไม่แก้ gameplay
 
-> **อัปเดต M1 (15 พ.ย. 2569):** ทำแล้วบน branch `m1-characters-jobs` — รูปลักษณ์เปลี่ยนเป็น `{gender, outfit}` (เพศเลือกชุด sprite: เพิ่ม `player_female_adventurer`, `player_female_robe`; sheet ชายคง asset_id เดิม), แก้ hub 23×23 และชื่อ occluder ซ้ำแล้ว รายละเอียด: `docs/changes/M1-characters-jobs.md`
+> **อัปเดต M1 (15 พ.ย. 2569):** ทำแล้วบน branch `m1-characters-jobs` — รูปลักษณ์เป็น `{gender}` — เพศเลือก sprite (`player_swordsman` ชาย คง asset_id เดิม, `player_female_basic` หญิง) และทุกคนเริ่มด้วยชุดพื้นฐานเดียวกัน ไม่มีตัวเลือกชุด, แก้ hub 23×23 และชื่อ occluder ซ้ำแล้ว รายละเอียด: `docs/changes/M1-characters-jobs.md`
 
 ## 7. ผลตรวจฐาน (รันจริง 15 พ.ย. 2569 บนสำเนาที่ตรงกับ `origin/main` `6d33aa2`)
 

@@ -100,12 +100,9 @@ export interface StoryProgress {
 }
 
 export type Gender = 'male' | 'female';
-/** Cosmetic outfit; does not change stats. */
-export type Outfit = 'adventurer' | 'robe';
-/** Gender selects the body sprite set; outfit selects the clothes. See shared/appearance.ts. */
+/** Gender selects the body sprite; everyone starts in the same basic outfit. See shared/appearance.ts. */
 export interface Appearance {
   gender: Gender;
-  outfit: Outfit;
 }
 
 export interface Profile {

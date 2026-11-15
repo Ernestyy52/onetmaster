@@ -249,17 +249,17 @@ test('character slots: create a second character and switch back', async ({ page
   await expect(page.locator('#nickname-msg')).toContainText('มีตัวละครชื่อนี้');
   await page.getByTestId('input-nickname').fill('ดอกไม้');
   await page.getByTestId('gender-female').click();
-  await page.getByTestId('outfit-robe').click();
   await expect(page.getByTestId('create-preview')).toContainText('ดอกไม้');
-  await expect(page.getByTestId('create-preview')).toContainText('หญิง');
-  await expect(page.locator('[data-testid=create-preview] .portrait')).toHaveAttribute('style', /player_female_robe/);
+  await expect(page.getByTestId('create-preview')).toContainText('หญิง · ชุดพื้นฐาน');
+  await expect(page.getByTestId('pick-outfit')).toHaveCount(0);
+  await expect(page.locator('[data-testid=create-preview] .portrait')).toHaveAttribute('style', /player_female_basic/);
   await shot(page, '8-create-female');
   await page.getByTestId('btn-create').click();
   await worldReady(page);
   await expect(page.locator('.hud-name strong')).toHaveText('ดอกไม้');
-  await expect(page.locator('[data-testid=hud] .portrait')).toHaveAttribute('style', /player_female_robe/);
+  await expect(page.locator('[data-testid=hud] .portrait')).toHaveAttribute('style', /player_female_basic/);
   const skin = await page.evaluate(() => (window as unknown as { __game: { scene: { getScene(k: string): { skin: string } } } }).__game.scene.getScene('Hub').skin);
-  expect(skin).toBe('player_female_robe');
+  expect(skin).toBe('player_female_basic');
 
   await page.reload();
   await expect(page.getByTestId('btn-start')).toContainText('ดอกไม้');
