@@ -32,15 +32,15 @@ export const ITEMS: Record<string, ItemDef> = {
   },
   oak_mace: {
     id: 'oak_mace', visual: 'eq_oak_mace', name: 'กระบองไม้โอ๊ก', kind: 'equipment', slot: 'weapon', atk: 2, def: 2, jobs: ['guardian'],
-    description: 'กระบองหนักที่ใช้ปัดป้องได้ดี ใช้ได้เฉพาะผู้พิทักษ์', icon: 'wrench',
+    description: 'กระบองหนักที่ใช้ปัดป้องได้ดี ใช้ได้เฉพาะผู้พิทักษ์', icon: 'mace',
   },
   apprentice_staff: {
     id: 'apprentice_staff', visual: 'eq_apprentice_staff', name: 'ไม้เท้าฝึกเวท', kind: 'equipment', slot: 'weapon', atk: 3, jobs: ['mage'],
-    description: 'ไม้เท้าที่ช่วยรวมสมาธิ ใช้ได้เฉพาะนักเวท', icon: 'book',
+    description: 'ไม้เท้าที่ช่วยรวมสมาธิ ใช้ได้เฉพาะนักเวท', icon: 'staff',
   },
   willow_bow: {
     id: 'willow_bow', visual: 'eq_willow_bow', name: 'ธนูไม้หลิว', kind: 'equipment', slot: 'weapon', atk: 3, jobs: ['archer'],
-    description: 'ธนูเบาที่ยิงแม่นยำ ใช้ได้เฉพาะนักธนู', icon: 'gear',
+    description: 'ธนูเบาที่ยิงแม่นยำ ใช้ได้เฉพาะนักธนู', icon: 'bow',
   },
   focus_potion: {
     id: 'focus_potion', name: 'ยาฟื้นพลัง', kind: 'consumable', heal: 25,

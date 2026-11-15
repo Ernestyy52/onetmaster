@@ -626,7 +626,8 @@ function buildWarden() {
 }
 
 // ─────────────────────────── Icons & effects ───────────────────────────
-export const ICONS = ['sword', 'robe', 'wrench', 'boots', 'potion', 'badge', 'book', 'letter', 'gear', 'flask', 'bag', 'quest', 'skillbook'] as const;
+// Append only: the index of each name is its frame in icons.png (src/ui/icons.ts must match).
+export const ICONS = ['sword', 'robe', 'wrench', 'boots', 'potion', 'badge', 'book', 'letter', 'gear', 'flask', 'bag', 'quest', 'skillbook', 'shield', 'staff', 'bow', 'mace'] as const;
 
 function buildIcons() {
   const sheet = new Canvas(32 * ICONS.length, 32);
@@ -708,6 +709,33 @@ function buildIcons() {
       c.rect(6, 6, 20, 20, hex('#7d4fd6'));
       c.rect(9, 9, 14, 14, hex('#b79bf2'));
       c.ellipse(16, 16, 4, 4, hex('#fff1b8'));
+    },
+    shield: (c) => {
+      // kite shield: wide top, pointed bottom, gold rim and cross
+      for (let y = 5; y < 28; y++) {
+        const half = y < 16 ? 11 : Math.max(1, Math.round(11 - (y - 16) * 0.9));
+        c.rect(16 - half, y, half * 2, 1, hex('#c9a227'));
+        if (half > 2) c.rect(16 - half + 2, y, half * 2 - 4, 1, hex('#4f86c6'));
+      }
+      c.rect(15, 8, 2, 16, hex('#e8c25a'));
+      c.rect(9, 13, 14, 2, hex('#e8c25a'));
+    },
+    staff: (c) => {
+      for (let i = 0; i < 18; i++) c.rect(8 + i * 0.7, 27 - i, 2, 2, hex('#7a5230'));
+      c.ellipse(22, 8, 5, 5, hex('#8fe3ff'));
+      c.ellipse(21, 7, 2, 2, hex('#ffffff'));
+    },
+    bow: (c) => {
+      for (let i = -11; i <= 11; i++) c.rect(12 + Math.round(8 * (1 - (i / 11) ** 2)), 16 + i, 2, 1, hex('#a8743f'));
+      c.line(13, 5, 13, 27, hex('#f3ead2'));
+      c.line(9, 16, 24, 16, hex('#dfe6f2'));
+      c.rect(23, 15, 3, 3, hex('#dfe6f2'));
+    },
+    mace: (c) => {
+      for (let i = 0; i < 14; i++) c.rect(7 + i, 25 - i, 3, 3, hex('#7a5230'));
+      c.ellipse(21, 10, 6, 6, hex('#8d8aa0'));
+      c.px(21, 3, hex('#8d8aa0')); c.px(28, 10, hex('#8d8aa0')); c.px(14, 10, hex('#8d8aa0'));
+      c.ellipse(19, 8, 2, 2, hex('#c7c4d6'));
     },
   };
   ICONS.forEach((name, i) => {

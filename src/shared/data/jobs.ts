@@ -64,7 +64,7 @@ export const JOBS: Record<JobId, JobDef> = {
     maxJobLevel: 40, growth: { atk: 0.3, def: 0.25, maxHp: 4 },
     active: 'bastion',
     passive: { name: 'ร่างกายแข็งแรง', desc: 'DEF +2 · HP สูงสุด +15', def: 2, maxHp: 15 },
-    starterItem: 'oak_mace', icon: 'robe',
+    starterItem: 'oak_mace', icon: 'shield',
   },
   mage: {
     id: 'mage', name: 'นักเวท', tier: 1, parent: 'novice', role: 'เวทตามความรู้',
@@ -72,7 +72,7 @@ export const JOBS: Record<JobId, JobDef> = {
     maxJobLevel: 40, growth: { atk: 0.45, def: 0.05, maxHp: 1.5 },
     active: 'insight_bolt',
     passive: { name: 'สมาธิลึก', desc: 'เก็บแต้มพลังได้สูงสุด +1', maxFocus: 1 },
-    starterItem: 'apprentice_staff', icon: 'book',
+    starterItem: 'apprentice_staff', icon: 'staff',
   },
   archer: {
     id: 'archer', name: 'นักธนู', tier: 1, parent: 'novice', role: 'เจาะจุดอ่อน',
@@ -80,7 +80,7 @@ export const JOBS: Record<JobId, JobDef> = {
     maxJobLevel: 40, growth: { atk: 0.5, def: 0.1, maxHp: 2 },
     active: 'marked_shot',
     passive: { name: 'สายตาเหยี่ยว', desc: 'โจมตีจุดอ่อนแรง ×2.5 (ปกติ ×2)', weakMult: 2.5 },
-    starterItem: 'willow_bow', icon: 'gear',
+    starterItem: 'willow_bow', icon: 'bow',
   },
 };
 

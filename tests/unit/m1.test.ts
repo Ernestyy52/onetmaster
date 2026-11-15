@@ -4,6 +4,7 @@ import { LocalGameApi, MemoryStorage } from '../../src/api/localGameApi';
 import { SAVE_KEY_V1, SAVE_KEY_V2 } from '../../src/api/saveFormat';
 import { equipmentLayers, normalizeAppearance, PLAYER_SPRITES, spriteKey } from '../../src/shared/appearance';
 import { ITEMS } from '../../src/shared/data/catalog';
+import { ICON_NAMES } from '../../src/ui/icons';
 import type { RunView } from '../../src/api/types';
 import { applyAction, createCombat, ENEMIES, type CombatState, type PlayerAction } from '../../src/shared/combat';
 import { FIRST_JOBS, JOBS } from '../../src/shared/data/jobs';
@@ -351,5 +352,17 @@ describe('equipment is drawn on the character (paper doll)', () => {
     expect(equipmentLayers(p)).toEqual(['eq_apprentice_robe', 'eq_wind_boots', 'eq_willow_bow']);
     p = await api.unequip('weapon');
     expect(equipmentLayers(p)).toEqual(['eq_apprentice_robe', 'eq_wind_boots']);
+  });
+});
+
+describe('icon atlas', () => {
+  it('atlas width matches ICON_NAMES and every job/item icon exists', () => {
+    const manifest = JSON.parse(readFileSync('public/assets/manifest.json', 'utf8')) as { assets: { key: string; width: number; frames?: number; notes?: string }[] };
+    const icons = manifest.assets.find((a) => a.key === 'icons')!;
+    expect(icons.width).toBe(ICON_NAMES.length * 32);
+    expect(icons.notes).toBe(ICON_NAMES.join(','));
+    for (const j of Object.values(JOBS)) expect(ICON_NAMES, j.id).toContain(j.icon);
+    for (const it of Object.values(ITEMS)) expect(ICON_NAMES, it.id).toContain(it.icon);
+    expect([JOBS.guardian.icon, JOBS.mage.icon, JOBS.archer.icon]).toEqual(['shield', 'staff', 'bow']);
   });
 });

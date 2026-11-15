@@ -1,7 +1,7 @@
 import { spriteKey } from '../../shared/appearance';
 import type { Appearance } from '../../shared/types';
 import { useEffect, useRef, type ReactNode } from 'react';
-import { ICON_INDEX, type IconName } from '../icons';
+import { ICON_INDEX, ICON_NAMES, type IconName } from '../icons';
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -18,7 +18,7 @@ export function Icon({ name, size = 32, title }: { name: IconName | string; size
         width: size,
         height: size,
         backgroundImage: `url(${BASE}assets/icons/icons.png)`,
-        backgroundSize: `${13 * 32 * scale}px ${size}px`,
+        backgroundSize: `${ICON_NAMES.length * 32 * scale}px ${size}px`,
         backgroundPosition: `${-i * size}px 0`,
       }}
     />

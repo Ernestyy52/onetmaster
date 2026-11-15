@@ -130,7 +130,7 @@ The unit test fails if an equippable item has no overlay sheet on the right grid
 A visual agent added concept art and a UI QA report on this branch while M1 was being built. Claude did **not** edit those files. Please reconcile:
 
 - `docs/visual/handoff-to-claude.md` says M1 "uses only `player_swordsman`/`player_mage`". That is **outdated**. Character creation now has **gender**, and there are **2 runtime player sheets** (§4), both in the same basic starter outfit. `player_female_basic` is a code-generated placeholder that follow the same 48×64 / (0.5, 0.94) contract and are listed in `docs/visual/asset-manifest.md`.
-- `m1-visual-qa.md` flags job icons that don't match their roles (guardian=`robe`, mage=`book`, archer=`gear`). Agreed, and **not fixed yet**. The fix is new `shield`/`staff`/`bow` icons in the atlas generator plus `src/ui/icons.ts` `ICON_NAMES` (order must match the atlas) plus `JOBS[*].icon`, all changed together.
+- `m1-visual-qa.md` flagged job icons that didn't match their roles (guardian=`robe`, mage=`book`, archer=`gear`). **Fixed:** the atlas now has `shield`, `staff`, `bow`, `mace` appended at the end (existing indices unchanged), and `src/ui/icons.ts` `ICON_NAMES`, `JOBS[*].icon` and the starter weapons' item icons were updated together. `Icon` derives the atlas width from `ICON_NAMES.length`, and a unit test checks that the atlas width and order match `ICON_NAMES`. **Rule:** only append new icons.
 - The concept lineup (`m1-lineup-concept.png`) is art direction only. It is not loaded in game and must not go into `public/assets/manifest.json`.
 - Job-specific body sprites (shield, bow, etc.) from the concept are a later asset round. Appearance (gender) stays independent of `JobId`.
 
