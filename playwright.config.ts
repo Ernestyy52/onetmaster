@@ -13,12 +13,15 @@ export default defineConfig({
   testDir: 'tests/e2e',
   timeout: 90_000,
   fullyParallel: true,
-  workers: 3,
+  workers: process.env.CI ? 2 : 3,
+  retries: process.env.CI ? 1 : 0,
   reporter: [['list']],
   use: {
     baseURL: 'http://localhost:4173',
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
+    // E2E_NO_GPU=1 mimics GPU-less machines (forces the Canvas renderer fallback).
+    launchOptions: { args: process.env.E2E_NO_GPU ? ['--disable-gpu'] : [] },
   },
   projects: sizes.map((s) => ({
     name: s.name,
