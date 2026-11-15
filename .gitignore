@@ -5,3 +5,7 @@ playwright-report
 .DS_Store
 *.local
 .env
+
+supabase/functions/game/engine.bundle.js
+dist-online-check
+supabase/.temp

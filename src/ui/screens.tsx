@@ -5,7 +5,8 @@ import { NICKNAME_MAX, validateNickname } from '../shared/nickname';
 import { BASIC_OUTFIT_LABEL, DEFAULT_APPEARANCE, equipmentLayers, GENDERS } from '../shared/appearance';
 import type { Appearance, Gender } from '../shared/types';
 import { useGame } from '../state/store';
-import { createCharacter, newCharacter, pickCharacter, startOrContinue } from './actions';
+import { ONLINE } from '../api';
+import { boot, createCharacter, newCharacter, pickCharacter, startOrContinue } from './actions';
 import { Icon, Portrait } from './components/common';
 import { SUBJECT_ORDER, SUBJECTS } from '../shared/data/catalog';
 /** What a new character wears (wooden sword + apprentice robe), so the preview matches the game. */
@@ -37,8 +38,58 @@ export function TitleScreen() {
             เปลี่ยน/สร้างตัวละคร
           </button>
         )}
-        <p className="muted small">ต้นแบบ · โหมดออฟไลน์ บันทึกในเครื่องนี้ · โจทย์ทั้งหมดเป็นฉบับร่างรอครูตรวจ</p>
+        <p className="muted small">ต้นแบบ · {ONLINE ? 'บัญชีออนไลน์ บันทึกบนเซิร์ฟเวอร์' : 'โหมดออฟไลน์ บันทึกในเครื่องนี้'} · โจทย์ทั้งหมดเป็นฉบับร่างรอครูตรวจ</p>
       </div>
+    </div>
+  );
+}
+
+/** Online builds only: sign in or create an account before the title screen. */
+export function AuthScreen() {
+  const [mode, setMode] = useState<'in' | 'up'>('in');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [msg, setMsg] = useState<{ text: string; bad: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const error = useGame((s) => s.error);
+  const valid = /\S+@\S+\.\S+/.test(email) && password.length >= 8;
+  const submit = async () => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const auth = await import('../api/auth');
+      if (mode === 'in') await auth.signIn(email.trim(), password);
+      else if (await auth.signUp(email.trim(), password)) {
+        setMsg({ text: 'สร้างบัญชีแล้ว — เปิดอีเมลเพื่อยืนยัน แล้วกลับมาเข้าสู่ระบบ', bad: false });
+        setMode('in');
+        return;
+      }
+      await boot();
+    } catch (e) {
+      setMsg({ text: e instanceof Error ? e.message : 'เข้าสู่ระบบไม่สำเร็จ', bad: true });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="screen create-screen">
+      <form className="title-card panel" data-testid="auth-screen" onSubmit={(e) => { e.preventDefault(); if (valid) void submit(); }}>
+        <h1 className="h-sm">{mode === 'in' ? 'เข้าสู่ระบบ' : 'สร้างบัญชี'}</h1>
+        <p className="muted small">บัญชีใช้บันทึกความคืบหน้าบนเซิร์ฟเวอร์ เล่นต่อจากเครื่องอื่นได้ · ให้ผู้ปกครองหรือครูช่วยตั้งค่า</p>
+        <label className="field">
+          <span>อีเมล</span>
+          <input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} data-testid="input-email" autoFocus />
+        </label>
+        <label className="field">
+          <span>รหัสผ่าน (อย่างน้อย 8 ตัว)</span>
+          <input type="password" autoComplete={mode === 'in' ? 'current-password' : 'new-password'} value={password} onChange={(e) => setPassword(e.target.value)} data-testid="input-password" />
+        </label>
+        {(msg || error) && <p className={`field-msg ${msg?.bad || (!msg && error) ? 'bad' : ''}`} role="status">{msg?.text ?? error}</p>}
+        <button type="submit" className="btn primary big" disabled={!valid || busy} data-testid="btn-auth">{mode === 'in' ? 'เข้าสู่ระบบ' : 'สร้างบัญชี'}</button>
+        <button type="button" className="btn ghost" onClick={() => { setMode(mode === 'in' ? 'up' : 'in'); setMsg(null); }}>
+          {mode === 'in' ? 'ยังไม่มีบัญชี? สร้างบัญชี' : 'มีบัญชีแล้ว? เข้าสู่ระบบ'}
+        </button>
+      </form>
     </div>
   );
 }

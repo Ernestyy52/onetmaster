@@ -4,7 +4,7 @@ import type { RunView } from '../api/types';
 import type { InteractTarget } from '../game/eventBus';
 import type { CharacterSummary, Progression, RewardSummary, SubjectId } from '../shared/types';
 
-export type Screen = 'loading' | 'title' | 'select' | 'create' | 'hub' | 'battle';
+export type Screen = 'loading' | 'auth' | 'title' | 'select' | 'create' | 'hub' | 'battle';
 export type Panel = 'inventory' | 'skills' | 'jobs' | 'rooms' | 'room' | 'lesson' | 'board' | 'menu' | null;
 
 export interface DialogueChoice {

@@ -1,5 +1,5 @@
 // UI controller: turns world interactions into API calls and dialogue.
-import { getApi, requestId } from '../api';
+import { getApi, initApi, ONLINE, requestId } from '../api';
 import type { RunView } from '../api/types';
 import { bus, type InteractTarget } from '../game/eventBus';
 import { ENEMIES, type PlayerAction } from '../shared/combat';
@@ -66,8 +66,22 @@ function showRewards(title: string, rewards: RewardSummary | null, note?: string
 // ───────── boot / profile ─────────
 
 export async function boot() {
-  const [progression, characters] = await Promise.all([api().getProgression(), api().listCharacters()]);
-  S().set({ progression, characters, screen: 'title' });
+  try {
+    await initApi();
+    if (ONLINE && !(await (await import('../api/auth')).hasSession())) return S().set({ screen: 'auth' });
+    const [progression, characters] = await Promise.all([api().getProgression(), api().listCharacters()]);
+    S().set({ progression, characters, screen: 'title', error: null });
+  } catch (e) {
+    console.error(e);
+    if (e instanceof Error && e.name === 'NotSignedInError') return S().set({ screen: 'auth' });
+    S().set({ screen: 'auth', error: ONLINE ? 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง' : 'โหลดเกมไม่สำเร็จ' });
+  }
+}
+
+export async function signOutOnline() {
+  if (!ONLINE) return;
+  await (await import('../api/auth')).signOut();
+  location.reload();
 }
 
 function firstFreeSlot(): number | null {

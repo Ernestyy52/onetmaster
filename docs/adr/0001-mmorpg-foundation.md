@@ -163,6 +163,8 @@ interface Party { id: string; leaderId: string; memberIds: string[] /* 2–4 */;
 
 > **อัปเดต M1 (15 พ.ย. 2569):** ทำแล้วบน branch `m1-characters-jobs` — รูปลักษณ์เป็น `{gender}` — เพศเลือก sprite (`player_swordsman` ชาย คง asset_id เดิม, `player_female_basic` หญิง) และทุกคนเริ่มด้วยชุดพื้นฐานเดียวกัน ไม่มีตัวเลือกชุด, แก้ hub 23×23 และชื่อ occluder ซ้ำแล้ว รายละเอียด: `docs/changes/M1-characters-jobs.md`
 
+> **อัปเดต M2 (15 พ.ย. 2569):** โค้ดบน branch `m2-accounts-server` — save เอกสารเดียวต่อบัญชี (`player_state`) แก้ได้เฉพาะ Edge Function `game` ในธุรกรรมที่ล็อกแถว + `request_log`; ยัง **ไม่ได้ deploy** ดู `docs/changes/M2-accounts-server.md`
+
 ## 7. ผลตรวจฐาน (รันจริง 15 พ.ย. 2569 บนสำเนาที่ตรงกับ `origin/main` `6d33aa2`)
 
 `npm run lint` ✅ · `npm run typecheck` ✅ · `npm run test` ✅ 29/29 · `npm run build` ✅ · `npm run validate:maps` ✅ · `npm run test:e2e` ยังไม่รัน (ยังไม่ได้ติดตั้ง Playwright Chromium; M0 ไม่แก้โค้ด) · ยืนยันแล้วว่า `answer_key` อยู่ใน `dist/assets/index-*.js`

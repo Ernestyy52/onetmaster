@@ -6,7 +6,8 @@ import { combatStats, MASTERY_LABEL } from '../../shared/progression';
 import { QUEST_ORDER, QUESTS } from '../../shared/story';
 import type { EquipSlot, QuestStatus } from '../../shared/types';
 import { useGame } from '../../state/store';
-import { acceptFromBoard, changeJob, equip, openCharacterSelect, openDoor, resetSave, roomBlurb, roomStatus } from '../actions';
+import { ONLINE } from '../../api';
+import { acceptFromBoard, changeJob, equip, openCharacterSelect, openDoor, resetSave, roomBlurb, roomStatus, signOutOnline } from '../actions';
 import { Bar, Icon, Modal } from '../components/common';
 
 const SLOT_LABEL: Record<EquipSlot, string> = { weapon: 'อาวุธ', armor: 'ชุด', shoes: 'รองเท้า', charm: 'เครื่องราง' };
@@ -260,7 +261,7 @@ function MenuPanel() {
   const [confirm, setConfirm] = useState(false);
   return (
     <Modal title="เมนู" onClose={close} testId="menu">
-      <p className="muted">ต้นแบบนี้บันทึกความคืบหน้าในเครื่องนี้ (Local) — บัญชีออนไลน์เพื่อเล่นต่อข้ามเครื่องจะเพิ่มเมื่อเชื่อม Supabase</p>
+      <p className="muted">{ONLINE ? 'บัญชีออนไลน์ — ความคืบหน้าบันทึกบนเซิร์ฟเวอร์ เล่นต่อจากเครื่องอื่นได้' : 'โหมดออฟไลน์ — ความคืบหน้าบันทึกในเครื่องนี้เท่านั้น'}</p>
       <h3>การควบคุม</h3>
       <ul className="controls-list">
         <li>เดิน: WASD / ลูกศร · คลิกหรือแตะพื้น · จอยซ้ายล่าง (จอสัมผัส)</li>
@@ -269,7 +270,9 @@ function MenuPanel() {
         <li>อาชีพ: J หรือแตะป้ายอาชีพใต้ชื่อ</li>
       </ul>
       <button className="btn" onClick={() => void openCharacterSelect()} data-testid="btn-switch-character">เปลี่ยนตัวละคร</button>
-      {confirm ? (
+      {ONLINE ? (
+        <button className="btn" onClick={() => void signOutOnline()} data-testid="btn-sign-out">ออกจากระบบ</button>
+      ) : confirm ? (
         <div className="row">
           <button className="btn danger" onClick={() => void resetSave()}>ยืนยันลบข้อมูลทั้งหมด</button>
           <button className="btn" onClick={() => setConfirm(false)}>ยกเลิก</button>

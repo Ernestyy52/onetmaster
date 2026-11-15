@@ -7,7 +7,6 @@
 import { equipmentLayers, isAppearance, normalizeAppearance } from '../shared/appearance';
 import { ITEMS } from '../shared/data/catalog';
 import { JOBS } from '../shared/data/jobs';
-import { QUESTION_BANK } from '../shared/data/questions';
 import { applyAction, applyAnswer, canUse, createCombat, ENEMIES, type PlayerAction } from '../shared/combat';
 import { addJobXp, canChangeJob, canEquipFor, jobProgress } from '../shared/jobs';
 import { validateNickname } from '../shared/nickname';
@@ -51,8 +50,11 @@ export class LocalGameApi implements GameApi {
 
   constructor(
     private storage: KeyValueStorage,
-    private bank: QuestionItem[] = QUESTION_BANK,
+    /** offline: the bundled bank (src/shared/data/questions); online server: rows from question_versions */
+    private bank: QuestionItem[],
     private rng: () => number = Math.random,
+    /** question statuses that may be served; the online server passes approved/published in production */
+    private allowedStatuses: ReviewStatus[] = PROTOTYPE_ALLOWED_STATUSES,
   ) {
     this.save = this.load();
   }
@@ -289,7 +291,7 @@ export class LocalGameApi implements GameApi {
       seenFamilies: this.acct.seenFamilies,
       remediateSkill: r.remediateSkill ?? undefined,
       targetDifficulty: enemy.kind === 'common' ? 1 : 2,
-      allowedStatuses: PROTOTYPE_ALLOWED_STATUSES,
+      allowedStatuses: this.allowedStatuses,
       rng: this.rng,
     });
     r.hintUsedThisTurn = false;

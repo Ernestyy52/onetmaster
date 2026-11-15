@@ -9,9 +9,8 @@ import { BattleUI } from './battle/BattleUI';
 import { ActionButton, Hud, Joystick, TopButtons } from './components/Hud';
 import { DialogueBox, RewardModal, Toasts } from './components/Overlays';
 import { Panels } from './panels/Panels';
-import { CreateScreen, SelectScreen, TitleScreen } from './screens';
+import { AuthScreen, CreateScreen, SelectScreen, TitleScreen } from './screens';
 import { getApi } from '../api';
-import { QUESTION_BANK } from '../shared/data/questions';
 
 function GameCanvas() {
   const ref = useRef<HTMLDivElement>(null);
@@ -124,16 +123,25 @@ export function App() {
     ];
     void boot();
     if (import.meta.env.DEV || new URLSearchParams(location.search).has('test')) {
-      (window as unknown as Record<string, unknown>).__onet = {
+      const helpers: Record<string, unknown> = {
         store: useGame,
-        api: getApi(),
-        bus,
-        // test-only helper: correct option for the current question (keys are bundled in local mode anyway)
-        answerFor: () => {
-          const t = useGame.getState().run?.turn;
-          return t ? (QUESTION_BANK.find((q) => q.id === t.question.id)?.answer_key ?? null) : null;
+        get api() {
+          return getApi();
         },
+        bus,
+        answerFor: () => null,
       };
+      (window as unknown as Record<string, unknown>).__onet = helpers;
+      // Offline-only test helper: correct option for the current question (keys ship with offline
+      // builds anyway). Online builds constant-fold this away, so no answer keys reach them.
+      if (!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY)) {
+        void import('../shared/data/questions').then(({ QUESTION_BANK }) => {
+          helpers.answerFor = () => {
+            const t = useGame.getState().run?.turn;
+            return t ? (QUESTION_BANK.find((q) => q.id === t.question.id)?.answer_key ?? null) : null;
+          };
+        });
+      }
     }
     return () => offs.forEach((o) => o());
   }, []);
@@ -147,6 +155,7 @@ export function App() {
       )}
       <div className="ui-layer">
         {screen === 'loading' && <div className="screen"><p>กำลังโหลด…</p></div>}
+        {screen === 'auth' && <AuthScreen />}
         {screen === 'title' && <TitleScreen />}
         {screen === 'select' && <SelectScreen />}
         {screen === 'create' && <CreateScreen />}

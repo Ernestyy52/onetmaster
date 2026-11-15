@@ -13,9 +13,14 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "assets": "tsx tools/assets/generate-placeholders.ts && tsx tools/maps/generate-hub.ts",
-    "validate:maps": "tsx tools/maps/validate.ts"
+    "validate:maps": "tsx tools/maps/validate.ts",
+    "check:online-bundle": "tsx tools/check-online-bundle.ts",
+    "supabase:seed": "tsx tools/supabase/gen-question-seed.ts",
+    "supabase:build": "tsx tools/supabase/build-functions.ts",
+    "test:online": "vitest run tests/integration"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.49.4",
     "phaser": "3.90.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
