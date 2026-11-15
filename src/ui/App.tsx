@@ -1,14 +1,15 @@
 import { useEffect, useRef } from 'react';
 import type Phaser from 'phaser';
 import { bus } from '../game/eventBus';
-import { ACTION_INFO, canUse, type PlayerAction } from '../shared/combat';
+import { ACTION_INFO, BASIC_ACTIONS, canUse, type PlayerAction } from '../shared/combat';
+import { ACTIVE_SKILLS } from '../shared/data/jobs';
 import { useGame } from '../state/store';
 import { act, advanceDialogue, answer, boot, dismissExplanation, interact, leaveBattle, onHubReady, refreshProgression } from './actions';
 import { BattleUI } from './battle/BattleUI';
 import { ActionButton, Hud, Joystick, TopButtons } from './components/Hud';
 import { DialogueBox, RewardModal, Toasts } from './components/Overlays';
 import { Panels } from './panels/Panels';
-import { CreateScreen, TitleScreen } from './screens';
+import { CreateScreen, SelectScreen, TitleScreen } from './screens';
 import { getApi } from '../api';
 import { QUESTION_BANK } from '../shared/data/questions';
 
@@ -68,6 +69,7 @@ function useKeyboard() {
           e.preventDefault();
           bus.emit('input:interact');
         } else if (e.key.toLowerCase() === 'k') s.set({ panel: 'skills' });
+        else if (e.key.toLowerCase() === 'j') s.set({ panel: 'jobs' });
         else if (e.key.toLowerCase() === 'm') s.set({ panel: 'rooms' });
         return;
       }
@@ -90,7 +92,9 @@ function useKeyboard() {
         }
         if (run.state.phase === 'command') {
           const potions = s.progression?.inventory.find((i) => i.itemId === 'focus_potion')?.qty ?? 0;
-          const action = (Object.keys(ACTION_INFO) as PlayerAction[]).find((a) => ACTION_INFO[a].key.toLowerCase() === e.key.toLowerCase());
+          const keyOf = (a: PlayerAction) => (a in ACTIVE_SKILLS ? ACTIVE_SKILLS[a as keyof typeof ACTIVE_SKILLS].key : ACTION_INFO[a as keyof typeof ACTION_INFO].key);
+          const options: PlayerAction[] = [...BASIC_ACTIONS, ...(run.state.skills ?? [])];
+          const action = options.find((a) => keyOf(a).toLowerCase() === e.key.toLowerCase());
           if (action && canUse(run.state, action, potions)) void act(action);
         }
       }
@@ -144,6 +148,7 @@ export function App() {
       <div className="ui-layer">
         {screen === 'loading' && <div className="screen"><p>กำลังโหลด…</p></div>}
         {screen === 'title' && <TitleScreen />}
+        {screen === 'select' && <SelectScreen />}
         {screen === 'create' && <CreateScreen />}
         {screen === 'hub' && (
           <>

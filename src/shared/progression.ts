@@ -1,4 +1,6 @@
 import { BASE_STATS, ITEMS } from './data/catalog';
+import type { ActiveSkillId } from './data/jobs';
+import { jobBonus } from './jobs';
 import type { MasteryLevel, Progression, SkillMastery, SubjectId } from './types';
 
 /** Main Story runs to 40, Endgame 41–60; levels keep counting after 60 with a stat soft cap. */
@@ -56,10 +58,28 @@ export function equippedBonus(p: Pick<Progression, 'equipment' | 'inventory'>): 
   return { atk, def };
 }
 
-export function combatStats(p: Progression): { maxHp: number; atk: number; def: number } {
+export interface CombatStats {
+  maxHp: number;
+  atk: number;
+  def: number;
+  maxFocus: number;
+  weakMult: number;
+  skills: ActiveSkillId[];
+}
+
+/** Adventure Level + job (level, passive) + equipment. Old saves without a job count as novice. */
+export function combatStats(p: Pick<Progression, 'level' | 'equipment' | 'inventory'> & Partial<Pick<Progression, 'job' | 'jobs'>>): CombatStats {
   const base = statsForLevel(p.level);
   const bonus = equippedBonus(p);
-  return { maxHp: base.maxHp, atk: base.atk + bonus.atk, def: BASE_STATS.def + bonus.def };
+  const job = jobBonus({ job: p.job ?? 'novice', jobs: p.jobs ?? {} });
+  return {
+    maxHp: base.maxHp + job.maxHp,
+    atk: base.atk + bonus.atk + job.atk,
+    def: BASE_STATS.def + bonus.def + job.def,
+    maxFocus: BASE_STATS.maxFocus + job.maxFocus,
+    weakMult: job.weakMult,
+    skills: job.skills,
+  };
 }
 
 export function newMastery(skill_id: string, subject: SubjectId): SkillMastery {

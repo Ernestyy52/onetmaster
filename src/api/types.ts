@@ -1,5 +1,5 @@
 import type { CombatEvent, CombatState, PlayerAction } from '../shared/combat';
-import type { Appearance, EquipSlot, Progression, PublicQuestion, RewardSummary } from '../shared/types';
+import type { Appearance, CharacterSummary, EquipSlot, JobId, Progression, PublicQuestion, RewardSummary } from '../shared/types';
 
 /** One question turn as the client sees it (no answer key). */
 export interface QuestionTurn {
@@ -52,8 +52,14 @@ export interface QuestResult {
  * idempotent: sending the same id again returns the stored result and grants nothing twice.
  */
 export interface GameApi {
+  /** Selected character merged with the account-wide mastery; `profile` is null when none is selected. */
   getProgression(): Promise<Progression>;
-  createProfile(nickname: string, appearance: Appearance): Promise<Progression>;
+  listCharacters(): Promise<CharacterSummary[]>;
+  /** Validates the nickname server-side, creates the character in an empty slot and selects it. */
+  createCharacter(slot: number, nickname: string, appearance: Appearance, requestId: string): Promise<Progression>;
+  selectCharacter(slot: number): Promise<Progression>;
+  /** After the prologue: switch between first jobs; each job keeps its own job level. */
+  changeJob(job: JobId, requestId: string): Promise<Progression>;
   talk(npc: string, requestId: string): Promise<QuestResult>;
   acceptQuest(questId: string, requestId: string): Promise<Progression>;
   completeQuest(questId: string, requestId: string): Promise<QuestResult>;

@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { spriteKey } from '../../shared/appearance';
 import { bus, type InteractTarget } from '../eventBus';
 import { anchors } from './BootScene';
 import { findPath, isoToWorld, tiledObjectToTile, worldToTile, type Pt } from '../../shared/iso';
@@ -210,7 +211,7 @@ export class HubScene extends Phaser.Scene {
 
   private spawnPlayer() {
     const prog = useGame.getState().progression;
-    this.skin = prog?.profile?.appearance === 'mage' ? 'player_mage' : 'player_swordsman';
+    this.skin = spriteKey(prog?.profile?.appearance);
     const spawn = this.layer<TiledObjectLayer>('spawns').objects.find((o) => o.name === 'player_spawn')!;
     let tile = this.objTile(spawn);
     const last = prog?.lastPosition;
@@ -347,7 +348,7 @@ export class HubScene extends Phaser.Scene {
     const owlHasNews =
       story.quests.q_meet_owl === 'available' || story.quests.q_clear_fog === 'available' || story.quests.q_math_door === 'available';
     this.owlMarker?.setVisible(owlHasNews);
-    const skin = prog.profile?.appearance === 'mage' ? 'player_mage' : 'player_swordsman';
+    const skin = spriteKey(prog.profile?.appearance);
     if (skin !== this.skin) {
       this.skin = skin;
       this.player.setTexture(skin);

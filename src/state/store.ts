@@ -2,10 +2,10 @@
 import { create } from 'zustand';
 import type { RunView } from '../api/types';
 import type { InteractTarget } from '../game/eventBus';
-import type { Progression, RewardSummary, SubjectId } from '../shared/types';
+import type { CharacterSummary, Progression, RewardSummary, SubjectId } from '../shared/types';
 
-export type Screen = 'loading' | 'title' | 'create' | 'hub' | 'battle';
-export type Panel = 'inventory' | 'skills' | 'rooms' | 'room' | 'lesson' | 'board' | 'menu' | null;
+export type Screen = 'loading' | 'title' | 'select' | 'create' | 'hub' | 'battle';
+export type Panel = 'inventory' | 'skills' | 'jobs' | 'rooms' | 'room' | 'lesson' | 'board' | 'menu' | null;
 
 export interface DialogueChoice {
   label: string;
@@ -36,6 +36,9 @@ export interface Toast {
 export interface GameStore {
   screen: Screen;
   progression: Progression | null;
+  characters: CharacterSummary[];
+  /** slot the create screen will fill */
+  createSlot: number | null;
   nearby: InteractTarget | null;
   dialogue: Dialogue | null;
   panel: Panel;
@@ -55,6 +58,8 @@ export interface GameStore {
 export const useGame = create<GameStore>((set) => ({
   screen: 'loading',
   progression: null,
+  characters: [],
+  createSlot: null,
   nearby: null,
   dialogue: null,
   panel: null,

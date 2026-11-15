@@ -1,3 +1,5 @@
+import { spriteKey } from '../../shared/appearance';
+import type { Appearance } from '../../shared/types';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { ICON_INDEX, type IconName } from '../icons';
 
@@ -23,7 +25,7 @@ export function Icon({ name, size = 32, title }: { name: IconName | string; size
   );
 }
 
-export function Portrait({ appearance, size = 56 }: { appearance: 'swordsman' | 'mage'; size?: number }) {
+export function Portrait({ appearance, size = 56 }: { appearance: Appearance; size?: number }) {
   const scale = size / 48;
   return (
     <span
@@ -32,7 +34,7 @@ export function Portrait({ appearance, size = 56 }: { appearance: 'swordsman' | 
       style={{
         width: size,
         height: size,
-        backgroundImage: `url(${BASE}assets/sprites/player_${appearance}.png)`,
+        backgroundImage: `url(${BASE}assets/sprites/${spriteKey(appearance)}.png)`,
         backgroundSize: `${480 * scale}px ${256 * scale}px`,
         backgroundPosition: `0px ${-8 * scale}px`,
       }}

@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { bus } from '../../game/eventBus';
-import { BASE_STATS } from '../../shared/data/catalog';
+import { JOBS } from '../../shared/data/jobs';
+import { jobLevelBar } from '../../shared/jobs';
+import { combatStats } from '../../shared/progression';
 import { levelProgress } from '../../shared/progression';
 import { activeQuest, nextAvailableQuest, prologueComplete, QUESTS } from '../../shared/story';
 import { useGame } from '../../state/store';
@@ -14,6 +16,9 @@ export function Hud({ battle = false }: { battle?: boolean }) {
   const hp = battle && run ? run.state.playerHp : p.hp;
   const maxHp = battle && run ? run.state.playerMaxHp : p.maxHp;
   const focus = battle && run ? run.state.focus : 0;
+  const maxFocus = battle && run ? run.state.maxFocus : combatStats(p).maxFocus;
+  const jb = jobLevelBar(p);
+  const set = useGame.getState().set;
   return (
     <div className="hud-tl">
       <div className="hud-card panel" data-testid="hud">
@@ -23,11 +28,21 @@ export function Hud({ battle = false }: { battle?: boolean }) {
             <strong>{p.profile.nickname}</strong>
             <span className="lv" data-testid="hud-level">Lv.{p.level}</span>
           </div>
+          <button
+            type="button"
+            className="job-chip"
+            onClick={() => !battle && set({ panel: 'jobs' })}
+            disabled={battle}
+            aria-label={`อาชีพ ${JOBS[p.job].name} Job Level ${jb.level} — แตะเพื่อดูอาชีพ`}
+            data-testid="hud-job"
+          >
+            <Icon name={JOBS[p.job].icon} size={16} /> {JOBS[p.job].name} · Job Lv.{jb.level}
+          </button>
           <div className="stat-row"><span className="stat-label">HP</span><Bar value={hp} max={maxHp} color="#ff5d7a" label="พลังชีวิต" /><span className="stat-num">{hp}/{maxHp}</span></div>
           <div className="stat-row">
             <span className="stat-label">พลัง</span>
-            <span className="pips" aria-label={`แต้มพลัง ${focus} จาก ${BASE_STATS.maxFocus}`}>
-              {Array.from({ length: BASE_STATS.maxFocus }, (_, i) => <span key={i} className={`pip ${i < focus ? 'on' : ''}`} />)}
+            <span className="pips" aria-label={`แต้มพลัง ${focus} จาก ${maxFocus}`}>
+              {Array.from({ length: maxFocus }, (_, i) => <span key={i} className={`pip ${i < focus ? 'on' : ''}`} />)}
             </span>
           </div>
           <div className="stat-row"><span className="stat-label">XP</span><Bar value={lp.into} max={lp.needed} color="#ffd23f" label="ค่าประสบการณ์" height={6} /><span className="stat-num" data-testid="hud-xp">{lp.into}/{lp.needed}</span></div>

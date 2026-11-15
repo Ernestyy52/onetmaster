@@ -1,11 +1,11 @@
-import { ACTION_INFO, canUse, ENEMIES, INTENT_INFO, type PlayerAction } from '../../shared/combat';
+import { ACTION_INFO, BASIC_ACTIONS, canUse, ENEMIES, INTENT_INFO } from '../../shared/combat';
+import { ACTIVE_SKILLS, JOBS } from '../../shared/data/jobs';
 import { ITEMS, SUBJECTS } from '../../shared/data/catalog';
 import type { Stimulus } from '../../shared/types';
 import { useGame } from '../../state/store';
 import { act, answer, dismissExplanation, fleeBattle, leaveBattle, requestHint } from '../actions';
 import { Bar, Icon } from '../components/common';
 
-const ACTIONS: PlayerAction[] = ['attack', 'defend', 'pierce', 'shield', 'potion'];
 const LETTERS = ['ก', 'ข', 'ค', 'ง'];
 
 export function BattleUI() {
@@ -149,7 +149,18 @@ function Commands() {
     <div className="commands" data-testid="commands">
       <p className="tip">{tip}</p>
       <div className="skill-grid">
-        {ACTIONS.map((a) => {
+        {(s.skills ?? []).map((id) => {
+          const sk = ACTIVE_SKILLS[id];
+          const ok = !busy && canUse(s, id, potions);
+          return (
+            <button key={id} className="btn skill job-skill" disabled={!ok} onClick={() => void act(id)} data-action={id} aria-keyshortcuts={sk.key} title={sk.desc}>
+              <span className="skill-name">{sk.name}</span>
+              <span className="skill-meta">{JOBS[sk.job].name} · ใช้พลัง {sk.cost}</span>
+              <kbd>{sk.key}</kbd>
+            </button>
+          );
+        })}
+        {BASIC_ACTIONS.map((a) => {
           const info = ACTION_INFO[a];
           const ok = !busy && canUse(s, a, potions);
           return (
@@ -174,7 +185,10 @@ function Result() {
     <div className="result" data-testid="battle-result">
       <h2 className={won ? 'win' : 'lose'}>{won ? 'ชนะแล้ว!' : 'พ่ายแพ้…'}</h2>
       {leveled && <div className="levelup" data-testid="levelup">เลเวลอัป! Lv.{r.rewards.levelBefore} → Lv.{r.rewards.levelAfter}</div>}
-      <div className="reward-xp">+{r.rewards.xp} XP</div>
+      {(r.rewards.jobLevelAfter ?? 0) > (r.rewards.jobLevelBefore ?? 0) && (
+        <div className="levelup job" data-testid="joblevelup">Job Level อัป! {r.rewards.jobLevelBefore} → {r.rewards.jobLevelAfter}</div>
+      )}
+      <div className="reward-xp">+{r.rewards.xp} XP{r.rewards.jobXp ? ` · +${r.rewards.jobXp} Job XP` : ''}</div>
       {r.rewards.items.length > 0 && (
         <ul className="reward-items">
           {r.rewards.items.map((it, i) => <li key={i}><Icon name={ITEMS[it.itemId].icon} size={28} /> ได้รับ {ITEMS[it.itemId].name} ×{it.qty}</li>)}

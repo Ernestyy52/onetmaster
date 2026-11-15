@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { spriteKey } from '../../shared/appearance';
 import { bus } from '../eventBus';
 import { isoToWorld } from '../../shared/iso';
 import { ENEMIES, type CombatEvent, type CombatState } from '../../shared/combat';
@@ -25,7 +26,7 @@ export class BattleScene extends Phaser.Scene {
   create() {
     const { run, progression } = useGame.getState();
     const enemyDef = ENEMIES[run?.enemyId ?? 'fog_wisp'];
-    this.skin = progression?.profile?.appearance === 'mage' ? 'player_mage' : 'player_swordsman';
+    this.skin = spriteKey(progression?.profile?.appearance);
     this.enemyKey = enemyDef.sprite;
     const color = Phaser.Display.Color.HexStringToColor(SUBJECTS[enemyDef.subjects[0]].color).color;
 
@@ -144,6 +145,40 @@ export class BattleScene extends Phaser.Scene {
           this.player.play(`${this.skin}-idle-right`);
           break;
         }
+        case 'skill': {
+          if (e.skillId === 'bastion') {
+            const ring = this.add.ellipse(this.playerHome.x, this.playerHome.y - 26, 70, 80).setStrokeStyle(4, 0xffd23f, 1).setDepth(5000);
+            this.number(this.playerHome.x, this.playerHome.y - 80, 'ปราการ!', '#ffd23f');
+            this.tweens.add({ targets: ring, alpha: 0, delay: 700, duration: 300, onComplete: () => ring.destroy() });
+            await wait(300);
+            break;
+          }
+          const color = e.skillId === 'insight_bolt' ? 0x9fd4ff : e.skillId === 'marked_shot' ? 0x7CFC9A : 0xffffff;
+          const hit = () => {
+            this.hitFx(this.enemyHome.x, this.enemyHome.y - eh);
+            this.enemy.setTintFill(color);
+            this.time.delayedCall(110, () => this.enemy.clearTint());
+            this.number(this.enemyHome.x, this.enemyHome.y - eh - 20, `${e.doubled ? 'จุดอ่อน! ' : ''}-${e.damage}`, '#ffd23f');
+            if (e.skillId === 'marked_shot') this.shield.setVisible(false);
+            if (e.doubled || e.skillId === 'twin_slash') this.cameras.main.shake(140, 0.005);
+          };
+          this.player.play(`${this.skin}-attack-right`);
+          if (e.skillId === 'twin_slash') {
+            this.lunge(this.player, this.playerHome, this.enemyHome, hit);
+          } else {
+            // ranged: bolt / arrow travels to the enemy
+            const shot = this.add.circle(this.playerHome.x + 16, this.playerHome.y - 34, e.skillId === 'insight_bolt' ? 7 : 4, color).setDepth(5500);
+            this.tweens.add({ targets: shot, x: this.enemyHome.x, y: this.enemyHome.y - eh, duration: 260, onComplete: () => { shot.destroy(); hit(); } });
+          }
+          await wait(480);
+          this.player.play(`${this.skin}-idle-right`);
+          break;
+        }
+        case 'reflect':
+          this.hitFx(this.enemyHome.x, this.enemyHome.y - eh);
+          this.number(this.enemyHome.x, this.enemyHome.y - eh - 20, `สะท้อน -${e.damage}`, '#ffd23f');
+          await wait(350);
+          break;
         case 'guard': {
           const ring = this.add.ellipse(this.playerHome.x, this.playerHome.y - 26, 60, 70).setStrokeStyle(3, e.mode === 'full' ? 0x8fe3ff : 0xcfd8ff, 1).setDepth(5000);
           this.tweens.add({ targets: ring, alpha: 0, delay: 600, duration: 300, onComplete: () => ring.destroy() });

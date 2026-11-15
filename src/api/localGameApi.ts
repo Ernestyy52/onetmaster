@@ -4,14 +4,22 @@
 // client code does not change when the real backend arrives. NOTE: in this local mode
 // the answer keys still ship inside the JS bundle — real deployments must move this file's
 // logic server-side.
-import { ITEMS, BASE_STATS } from '../shared/data/catalog';
+import { isAppearance, normalizeAppearance } from '../shared/appearance';
+import { ITEMS } from '../shared/data/catalog';
+import { JOBS } from '../shared/data/jobs';
 import { QUESTION_BANK } from '../shared/data/questions';
-import { applyAction, applyAnswer, canUse, createCombat, ENEMIES, type CombatState, type PlayerAction } from '../shared/combat';
-import { combatStats, levelForXp, newMastery, questionXp, recordMastery, statsForLevel } from '../shared/progression';
+import { applyAction, applyAnswer, canUse, createCombat, ENEMIES, type PlayerAction } from '../shared/combat';
+import { addJobXp, canChangeJob, canEquipFor, jobProgress } from '../shared/jobs';
+import { validateNickname } from '../shared/nickname';
+import { combatStats, levelForXp, newMastery, questionXp, recordMastery } from '../shared/progression';
 import { selectNextQuestion, shuffleOptions, toPublic } from '../shared/questionSelector';
-import { initialStory, QUESTS, refreshAvailability } from '../shared/story';
-import type { Appearance, EquipSlot, Progression, QuestionItem, ReviewStatus, RewardSummary } from '../shared/types';
-import type { ActionResult, AnswerResult, GameApi, QuestResult, RunResult, RunView } from './types';
+import { QUESTS, refreshAvailability } from '../shared/story';
+import type { Appearance, CharacterSummary, EquipSlot, JobId, Progression, QuestionItem, ReviewStatus, RewardSummary } from '../shared/types';
+import {
+  freshCharacter, loadSave, MAX_SLOTS, SAVE_KEY_V1, SAVE_KEY_V2, trimRequests,
+  type CharacterRecord, type RunRecord, type SaveV2,
+} from './saveFormat';
+import type { ActionResult, GameApi, QuestResult, RunView } from './types';
 
 export interface KeyValueStorage {
   getItem(key: string): string | null;
@@ -32,64 +40,14 @@ export class MemoryStorage implements KeyValueStorage {
   }
 }
 
-interface RunRecord {
-  runId: string;
-  enemyId: string;
-  state: CombatState;
-  usedIds: string[];
-  usedFamilies: string[];
-  questionId: string | null;
-  turnId: string | null;
-  optionOrder: string[];
-  isReview: boolean;
-  hintsLeft: number;
-  hintUsedThisTurn: boolean;
-  eliminated: string[];
-  lastAnswer: AnswerResult | null;
-  remediateSkill: string | null;
-  pendingXp: number;
-  result: RunResult | null;
-}
-
-interface SaveFile {
-  version: 1;
-  progression: Progression;
-  runs: Record<string, RunRecord>;
-  requests: Record<string, unknown>;
-  counter: number;
-}
-
-const SAVE_KEY = 'onet-rpg-save-v1';
 /** Prototype: items awaiting teacher review are playable but flagged in the UI. */
 export const PROTOTYPE_ALLOWED_STATUSES: ReviewStatus[] = ['review', 'approved', 'published'];
 const HINTS_PER_RUN = 2;
 
-function freshProgression(): Progression {
-  return {
-    profile: null,
-    level: 1,
-    xp: 0,
-    hp: BASE_STATS.maxHp,
-    maxHp: BASE_STATS.maxHp,
-    inventory: [
-      { instanceId: 'inv-1', itemId: 'wooden_sword', qty: 1 },
-      { instanceId: 'inv-2', itemId: 'apprentice_robe', qty: 1 },
-      { instanceId: 'inv-3', itemId: 'focus_potion', qty: 2 },
-    ],
-    equipment: { weapon: 'inv-1', armor: 'inv-2' },
-    mastery: {},
-    seenFamilies: {},
-    story: initialStory(),
-    codex: [],
-    activeRunId: null,
-    lastPosition: null,
-  };
-}
-
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
 export class LocalGameApi implements GameApi {
-  private save: SaveFile;
+  private save: SaveV2;
 
   constructor(
     private storage: KeyValueStorage,
@@ -99,22 +57,16 @@ export class LocalGameApi implements GameApi {
     this.save = this.load();
   }
 
-  private load(): SaveFile {
-    try {
-      const raw = this.storage.getItem(SAVE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as SaveFile;
-        if (parsed.version === 1) return parsed;
-      }
-    } catch {
-      /* corrupted save → start fresh */
-    }
-    return { version: 1, progression: freshProgression(), runs: {}, requests: {}, counter: 0 };
+  private load(): SaveV2 {
+    const { save, migrated } = loadSave(this.storage.getItem(SAVE_KEY_V2), this.storage.getItem(SAVE_KEY_V1));
+    this.save = save;
+    if (migrated) this.persist(); // v1 key is kept as the rollback copy
+    return save;
   }
 
   private persist() {
     try {
-      this.storage.setItem(SAVE_KEY, JSON.stringify(this.save));
+      this.storage.setItem(SAVE_KEY_V2, JSON.stringify(trimRequests(this.save)));
     } catch {
       /* storage full or blocked — keep playing in memory */
     }
@@ -129,8 +81,19 @@ export class LocalGameApi implements GameApi {
     return clone(result);
   }
 
-  private get p() {
-    return this.save.progression;
+  private character(slot: number | null): CharacterRecord | undefined {
+    return slot === null ? undefined : this.save.characters.find((c) => c.slot === slot);
+  }
+
+  /** The selected character. Every gameplay call requires one. */
+  private get p(): CharacterRecord {
+    const c = this.character(this.save.selected);
+    if (!c) throw new Error('ยังไม่ได้เลือกตัวละคร');
+    return c;
+  }
+
+  private get acct() {
+    return this.save.account;
   }
 
   private requireProfile() {
@@ -142,38 +105,118 @@ export class LocalGameApi implements GameApi {
     return `${prefix}-${this.save.counter}`;
   }
 
+  private viewOf(c: CharacterRecord): Progression {
+    return clone({ ...c, mastery: this.acct.mastery, seenFamilies: this.acct.seenFamilies });
+  }
+
+  private syncMaxHp(fullHeal: boolean) {
+    const maxHp = combatStats(this.p).maxHp;
+    this.p.maxHp = maxHp;
+    this.p.hp = fullHeal ? maxHp : Math.min(this.p.hp, maxHp);
+  }
+
+  // ───────── characters ─────────
+
+  async getProgression(): Promise<Progression> {
+    const c = this.character(this.save.selected);
+    return this.viewOf(c ?? freshCharacter(0));
+  }
+
+  async listCharacters(): Promise<CharacterSummary[]> {
+    return this.save.characters
+      .filter((c) => c.profile)
+      .sort((a, b) => a.slot - b.slot)
+      .map((c) => ({
+        slot: c.slot, nickname: c.profile!.nickname, appearance: c.profile!.appearance,
+        level: c.level, job: c.job, jobLevel: jobProgress(c).level,
+      }));
+  }
+
+  async createCharacter(slot: number, nickname: string, appearance: Appearance, requestId: string): Promise<Progression> {
+    return this.once(requestId, () => {
+      if (!Number.isInteger(slot) || slot < 1 || slot > MAX_SLOTS) throw new Error('ช่องตัวละครไม่ถูกต้อง');
+      if (this.character(slot)) throw new Error('ช่องนี้มีตัวละครแล้ว');
+      if (!isAppearance(appearance)) throw new Error('รูปลักษณ์ไม่ถูกต้อง');
+      const check = validateNickname(nickname, this.save.characters.map((c) => c.profile?.nickname ?? ''));
+      if (!check.ok) throw new Error(check.reason);
+      const c = freshCharacter(slot);
+      c.profile = { nickname: check.value, appearance: normalizeAppearance(appearance), createdAt: new Date().toISOString() };
+      this.save.characters.push(c);
+      this.save.selected = slot;
+      return this.viewOf(c);
+    });
+  }
+
+  async selectCharacter(slot: number): Promise<Progression> {
+    const c = this.character(slot);
+    if (!c?.profile) throw new Error('ไม่พบตัวละครในช่องนี้');
+    this.save.selected = slot;
+    this.persist();
+    return this.viewOf(c);
+  }
+
+  async changeJob(job: JobId, requestId: string): Promise<Progression> {
+    this.requireProfile();
+    return this.once(requestId, () => {
+      const check = canChangeJob(this.p, job);
+      if (!check.ok) throw new Error(check.reason);
+      const c = this.p;
+      c.job = job;
+      c.jobs[job] = c.jobs[job] ?? { level: 1, xp: 0 };
+      // Take off gear the new job cannot use.
+      for (const [slot, instanceId] of Object.entries(c.equipment) as [EquipSlot, string][]) {
+        const inst = c.inventory.find((i) => i.instanceId === instanceId);
+        if (inst && !canEquipFor(ITEMS[inst.itemId], job)) delete c.equipment[slot];
+      }
+      const starter = JOBS[job].starterItem;
+      const flag = `starter_${job}`;
+      if (starter && !c.story.flags[flag]) {
+        c.story.flags[flag] = true;
+        const id = this.addItem(starter, 1);
+        const def = ITEMS[starter];
+        if (def.slot) c.equipment[def.slot] = id;
+      }
+      if (!c.codex.includes(`job:${job}`)) c.codex.push(`job:${job}`);
+      this.syncMaxHp(true);
+      return this.viewOf(c);
+    });
+  }
+
   // ───────── progression ─────────
 
-  async getProgression() {
-    return clone(this.p);
-  }
-
-  async createProfile(nickname: string, appearance: Appearance) {
-    const name = nickname.trim().replace(/\s+/g, ' ').slice(0, 16);
-    if (!name) throw new Error('nickname required');
-    this.p.profile = { nickname: name, appearance, createdAt: new Date().toISOString() };
-    this.persist();
-    return clone(this.p);
-  }
-
-  private addItem(itemId: string, qty: number) {
+  private addItem(itemId: string, qty: number): string {
     const def = ITEMS[itemId];
     if (!def) throw new Error(`unknown item ${itemId}`);
     const stack = def.kind === 'consumable' ? this.p.inventory.find((i) => i.itemId === itemId) : undefined;
-    if (stack) stack.qty += qty;
-    else this.p.inventory.push({ instanceId: this.nextId('item'), itemId, qty });
     if (!this.p.codex.includes(`item:${itemId}`)) this.p.codex.push(`item:${itemId}`);
+    if (stack) {
+      stack.qty += qty;
+      return stack.instanceId;
+    }
+    const instanceId = this.nextId('item');
+    this.p.inventory.push({ instanceId, itemId, qty });
+    return instanceId;
   }
 
   private grant(xp: number, items: { itemId: string; qty: number }[]): RewardSummary {
     const levelBefore = this.p.level;
     this.p.xp += xp;
     this.p.level = levelForXp(this.p.xp);
-    const stats = statsForLevel(this.p.level);
-    this.p.maxHp = stats.maxHp;
-    if (this.p.level > levelBefore) this.p.hp = stats.maxHp;
+    this.syncMaxHp(this.p.level > levelBefore);
     for (const it of items) this.addItem(it.itemId, it.qty);
     return { xp, levelBefore, levelAfter: this.p.level, items };
+  }
+
+  /** Job XP comes from combat only — never from buying or from questions alone. */
+  private grantJobXp(xp: number, rewards: RewardSummary) {
+    const job = this.p.job;
+    const before = jobProgress(this.p);
+    const after = addJobXp(job, before, xp);
+    this.p.jobs[job] = after;
+    rewards.jobXp = xp;
+    rewards.jobLevelBefore = before.level;
+    rewards.jobLevelAfter = after.level;
+    if (after.level > before.level) this.syncMaxHp(true);
   }
 
   private finishQuest(questId: string): RewardSummary {
@@ -196,7 +239,7 @@ export class LocalGameApi implements GameApi {
         }
       }
       if (!this.p.codex.includes(`npc:${npc}`)) this.p.codex.push(`npc:${npc}`);
-      return { progression: clone(this.p), rewards };
+      return { progression: this.viewOf(this.p), rewards };
     });
   }
 
@@ -205,7 +248,7 @@ export class LocalGameApi implements GameApi {
     return this.once(requestId, () => {
       if (this.p.story.quests[questId] !== 'available') throw new Error(`quest ${questId} not available`);
       this.p.story.quests[questId] = 'active';
-      return clone(this.p);
+      return this.viewOf(this.p);
     });
   }
 
@@ -214,7 +257,7 @@ export class LocalGameApi implements GameApi {
     return this.once(requestId, () => {
       if (this.p.story.quests[questId] !== 'ready') throw new Error(`quest ${questId} is not ready`);
       const rewards = this.finishQuest(questId);
-      return { progression: clone(this.p), rewards };
+      return { progression: this.viewOf(this.p), rewards };
     });
   }
 
@@ -243,7 +286,7 @@ export class LocalGameApi implements GameApi {
       subjects: enemy.subjects,
       usedIds: new Set(r.usedIds),
       usedFamilies: new Set(r.usedFamilies),
-      seenFamilies: this.p.seenFamilies,
+      seenFamilies: this.acct.seenFamilies,
       remediateSkill: r.remediateSkill ?? undefined,
       targetDifficulty: enemy.kind === 'common' ? 1 : 2,
       allowedStatuses: PROTOTYPE_ALLOWED_STATUSES,
@@ -280,8 +323,8 @@ export class LocalGameApi implements GameApi {
       const stats = combatStats(this.p);
       const runId = this.nextId('run');
       const r: RunRecord = {
-        runId, enemyId,
-        state: createCombat(enemy, { ...stats, hp: this.p.hp, maxFocus: BASE_STATS.maxFocus }),
+        runId, enemyId, slot: this.p.slot,
+        state: createCombat(enemy, { ...stats, hp: this.p.hp }),
         usedIds: [], usedFamilies: [], questionId: null, turnId: null, optionOrder: [], isReview: false,
         hintsLeft: HINTS_PER_RUN, hintUsedThisTurn: false, eliminated: [], lastAnswer: null,
         remediateSkill: null, pendingXp: 0, result: null,
@@ -301,7 +344,7 @@ export class LocalGameApi implements GameApi {
 
   private ownRun(runId: string): RunRecord {
     const r = this.save.runs[runId];
-    if (!r || this.p.activeRunId !== runId) throw new Error('run not found or not active');
+    if (!r || this.p.activeRunId !== runId || (r.slot ?? 1) !== this.p.slot) throw new Error('run not found or not active');
     return r;
   }
 
@@ -326,10 +369,10 @@ export class LocalGameApi implements GameApi {
       const q = this.bank.find((b) => b.id === r.questionId)!;
       if (!q.options.some((o) => o.id === optionId)) throw new Error('unknown option');
       const correct = optionId === q.answer_key;
-      const seenBefore = this.p.seenFamilies[q.variant_family_id] ?? 0;
-      this.p.seenFamilies[q.variant_family_id] = seenBefore + 1;
-      const m = this.p.mastery[q.skill_id] ?? newMastery(q.skill_id, q.subject);
-      this.p.mastery[q.skill_id] = recordMastery(m, { correct, usedHint: r.hintUsedThisTurn, familyId: q.variant_family_id });
+      const seenBefore = this.acct.seenFamilies[q.variant_family_id] ?? 0;
+      this.acct.seenFamilies[q.variant_family_id] = seenBefore + 1;
+      const m = this.acct.mastery[q.skill_id] ?? newMastery(q.skill_id, q.subject);
+      this.acct.mastery[q.skill_id] = recordMastery(m, { correct, usedHint: r.hintUsedThisTurn, familyId: q.variant_family_id });
       if (correct) r.pendingXp += questionXp(ENEMIES[r.enemyId].questionXp, seenBefore, r.hintUsedThisTurn);
       r.remediateSkill = correct ? null : q.skill_id;
       r.lastAnswer = {
@@ -387,6 +430,7 @@ export class LocalGameApi implements GameApi {
       if (enemy.id === 'fog_wisp' && this.p.story.counters[killKey] % 3 === 0) items.push({ itemId: 'focus_potion', qty: 1 });
     }
     const rewards = this.grant(xp, items);
+    if (won) this.grantJobXp(enemy.xp, rewards);
     if (won) {
       for (const [id, def] of Object.entries(QUESTS)) {
         if (this.p.story.quests[id] !== 'active') continue;
@@ -420,7 +464,7 @@ export class LocalGameApi implements GameApi {
       this.finishRun(r);
       this.persist();
     }
-    return clone(this.p);
+    return this.viewOf(this.p);
   }
 
   // ───────── equipment ─────────
@@ -429,24 +473,27 @@ export class LocalGameApi implements GameApi {
     const inst = this.p.inventory.find((i) => i.instanceId === instanceId);
     const def = inst && ITEMS[inst.itemId];
     if (!def || def.kind !== 'equipment' || !def.slot) throw new Error('not equipment');
+    if (!canEquipFor(def, this.p.job)) throw new Error(`${JOBS[this.p.job].name}ใช้${def.name}ไม่ได้`);
     this.p.equipment[def.slot] = instanceId;
     this.persist();
-    return clone(this.p);
+    return this.viewOf(this.p);
   }
 
   async unequip(slot: EquipSlot) {
     delete this.p.equipment[slot];
     this.persist();
-    return clone(this.p);
+    return this.viewOf(this.p);
   }
 
   async savePosition(tx: number, ty: number) {
+    if (!this.character(this.save.selected)) return;
     this.p.lastPosition = { tx, ty };
     this.persist();
   }
 
   async reset() {
-    this.storage.removeItem(SAVE_KEY);
+    this.storage.removeItem(SAVE_KEY_V2);
+    this.storage.removeItem(SAVE_KEY_V1);
     this.save = this.load();
   }
 }

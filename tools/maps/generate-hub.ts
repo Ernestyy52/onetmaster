@@ -62,6 +62,7 @@ const isRoad = (x: number, y: number) => Math.abs(x - C) <= 2 || Math.abs(y - C)
 for (let i = 1; i < N - 1; i++) {
   for (const [x, y] of [[i, 1], [1, i], [i, N - 2], [N - 2, i]] as [number, number][]) {
     if (isRoad(x, y) || (i % 2 === 0 && !(x === 1 && y === 1))) continue;
+    if (occluders.some((o) => o.name === `tree_${x}_${y}`)) continue; // corners are visited by two edges
     occluders.push(obj(`tree_${x}_${y}`, 'prop', x, y, [p('sprite', (x + y) % 4 === 0 ? 'tree_round' : 'tree'), p('collide', true)]));
     blockTile(x, y);
   }

@@ -1,8 +1,16 @@
 // Pure turn-based combat rules. The (local) API runs these; the client only renders results.
+import { ACTIVE_SKILLS, type ActiveSkillId } from './data/jobs';
 import type { SubjectId } from './types';
 
 export type IntentId = 'strike' | 'charge' | 'beam' | 'guard';
-export type PlayerAction = 'attack' | 'defend' | 'pierce' | 'shield' | 'potion';
+export type BasicAction = 'attack' | 'defend' | 'pierce' | 'shield' | 'potion';
+/** Basic commands every job has, plus the current job's active skills. */
+export type PlayerAction = BasicAction | ActiveSkillId;
+export const BASIC_ACTIONS: BasicAction[] = ['attack', 'defend', 'pierce', 'shield', 'potion'];
+
+export function isSkill(a: PlayerAction): a is ActiveSkillId {
+  return a in ACTIVE_SKILLS;
+}
 
 export interface EnemyDef {
   id: string;
@@ -40,7 +48,7 @@ export const INTENT_INFO: Record<IntentId, { label: string; hint: string }> = {
   guard: { label: 'ตั้งการ์ด', hint: 'ไม่โจมตีเทิร์นนี้' },
 };
 
-export const ACTION_INFO: Record<PlayerAction, { label: string; key: string; cost: number; desc: string }> = {
+export const ACTION_INFO: Record<BasicAction, { label: string; key: string; cost: number; desc: string }> = {
   attack: { label: 'โจมตี', key: 'Q', cost: 0, desc: 'โจมตีปกติ แรงขึ้น 2 เท่าถ้าเปิดจุดอ่อนแล้ว' },
   defend: { label: 'ป้องกัน', key: 'W', cost: 0, desc: 'ลดความเสียหายเทิร์นนี้ครึ่งหนึ่ง' },
   pierce: { label: 'เจาะเกราะ', key: 'E', cost: 1, desc: 'ใช้ 1 แต้มพลัง ทำลายโล่และเปิดจุดอ่อน' },
@@ -66,11 +74,21 @@ export interface CombatState {
   intent: IntentId;
   correctAnswers: number;
   questionsAsked: number;
+  /** active skills usable in this run (fixed at start; older saved runs may lack it) */
+  skills?: ActiveSkillId[];
+  /** weak-point damage multiplier (archer passive); default 2 */
+  weakMult?: number;
+}
+
+export function actionCost(a: PlayerAction): number {
+  return isSkill(a) ? ACTIVE_SKILLS[a].cost : ACTION_INFO[a].cost;
 }
 
 export type CombatEvent =
   | { type: 'player_attack'; damage: number; doubled: boolean; blockedByShield: boolean }
   | { type: 'pierce'; damage: number }
+  | { type: 'skill'; skillId: ActiveSkillId; damage: number; doubled: boolean; brokeShield: boolean }
+  | { type: 'reflect'; damage: number }
   | { type: 'guard'; mode: 'half' | 'full' }
   | { type: 'heal'; amount: number }
   | { type: 'enemy_attack'; intent: IntentId; damage: number; blocked: 'none' | 'half' | 'full' }
@@ -87,6 +105,8 @@ export interface PlayerCombatStats {
   atk: number;
   def: number;
   maxFocus: number;
+  skills?: ActiveSkillId[];
+  weakMult?: number;
 }
 
 export function createCombat(enemy: EnemyDef, player: PlayerCombatStats): CombatState {
@@ -107,6 +127,8 @@ export function createCombat(enemy: EnemyDef, player: PlayerCombatStats): Combat
     intent: enemy.intents[0],
     correctAnswers: 0,
     questionsAsked: questionNow ? 1 : 0,
+    skills: player.skills ?? [],
+    weakMult: player.weakMult ?? 2,
   };
 }
 
@@ -128,7 +150,8 @@ export function applyAnswer(s: CombatState, correct: boolean): { state: CombatSt
 export function canUse(s: CombatState, action: PlayerAction, potions: number): boolean {
   if (s.phase !== 'command') return false;
   if (action === 'potion') return potions > 0 && s.playerHp < s.playerMaxHp;
-  return s.focus >= ACTION_INFO[action].cost;
+  if (isSkill(action) && !(s.skills ?? []).includes(action)) return false;
+  return s.focus >= actionCost(action);
 }
 
 export function applyAction(
@@ -142,7 +165,9 @@ export function applyAction(
   const n: CombatState = { ...s };
   const events: CombatEvent[] = [];
   let guard: 'none' | 'half' | 'full' = 'none';
+  let reflect = 0;
   let potionUsed = false;
+  const weakMult = n.weakMult ?? 2;
 
   switch (action) {
     case 'attack': {
@@ -150,7 +175,7 @@ export function applyAction(
       let doubled = false;
       const blockedByShield = n.enemyShield && !n.weakPoint;
       if (n.weakPoint) {
-        damage *= 2;
+        damage = Math.round(damage * weakMult);
         doubled = true;
         n.weakPoint = false;
       } else if (n.enemyShield) {
@@ -178,6 +203,50 @@ export function applyAction(
       guard = 'half';
       events.push({ type: 'guard', mode: 'half' });
       break;
+    case 'twin_slash': {
+      n.focus -= ACTIVE_SKILLS.twin_slash.cost;
+      let damage = Math.round(player.atk * 1.7);
+      const doubled = n.weakPoint;
+      if (n.weakPoint) {
+        damage = Math.round(damage * weakMult);
+        n.weakPoint = false;
+      } else if (n.enemyShield) {
+        damage = Math.ceil(damage * 0.6);
+      }
+      n.enemyHp = Math.max(0, n.enemyHp - damage);
+      events.push({ type: 'skill', skillId: 'twin_slash', damage, doubled, brokeShield: false });
+      break;
+    }
+    case 'bastion':
+      n.focus -= ACTIVE_SKILLS.bastion.cost;
+      guard = 'full';
+      reflect = 0.6;
+      events.push({ type: 'skill', skillId: 'bastion', damage: 0, doubled: false, brokeShield: false });
+      break;
+    case 'insight_bolt': {
+      n.focus -= ACTIVE_SKILLS.insight_bolt.cost;
+      // Scales with questions answered correctly in this fight; magic ignores the shield.
+      const mult = Math.min(2.6, 1 + 0.4 * n.correctAnswers);
+      let damage = Math.round(player.atk * mult);
+      const doubled = n.weakPoint;
+      if (n.weakPoint) {
+        damage = Math.round(damage * weakMult);
+        n.weakPoint = false;
+      }
+      n.enemyHp = Math.max(0, n.enemyHp - damage);
+      events.push({ type: 'skill', skillId: 'insight_bolt', damage, doubled, brokeShield: false });
+      break;
+    }
+    case 'marked_shot': {
+      n.focus -= ACTIVE_SKILLS.marked_shot.cost;
+      const damage = Math.ceil(player.atk * 0.8);
+      const brokeShield = n.enemyShield;
+      n.enemyShield = false;
+      n.weakPoint = true;
+      n.enemyHp = Math.max(0, n.enemyHp - damage);
+      events.push({ type: 'skill', skillId: 'marked_shot', damage, doubled: false, brokeShield });
+      break;
+    }
     case 'potion': {
       const amount = Math.min(25, n.playerMaxHp - n.playerHp);
       n.playerHp += amount;
@@ -201,6 +270,16 @@ export function applyAction(
     const damage = afterGuard === 0 ? 0 : Math.max(1, afterGuard - player.def);
     n.playerHp = Math.max(0, n.playerHp - damage);
     events.push({ type: 'enemy_attack', intent, damage, blocked: guard });
+    if (reflect > 0) {
+      const back = Math.max(1, Math.round(raw * reflect));
+      n.enemyHp = Math.max(0, n.enemyHp - back);
+      events.push({ type: 'reflect', damage: back });
+      if (n.enemyHp <= 0) {
+        n.phase = 'won';
+        events.push({ type: 'victory' });
+        return { state: n, events, potionUsed };
+      }
+    }
   } else if (intent === 'charge') {
     events.push({ type: 'enemy_charge' });
   } else {
