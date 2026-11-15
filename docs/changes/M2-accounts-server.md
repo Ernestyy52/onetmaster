@@ -3,7 +3,11 @@
 **For:** ChatGPT/Codex or any other agent continuing this repo. **Branch:** `m2-accounts-server` (on top of `m1-characters-jobs`). **Date:** 15 Nov 2026.
 **Supabase project (dev):** `https://torkznvzanwoniqxuttc.supabase.co` (ref `torkznvzanwoniqxuttc`).
 
-> **Status:** the code is written and tested locally (unit tests with an in-memory database, plus a bundle leak check). **It is NOT deployed yet.** The schema has not been pushed, the function has not been deployed, and the real-backend integration tests have not run. Do not describe the game as online until the steps in §5 are done and `npm run test:online` passes.
+> **Status (15 Nov 2026):** **deployed to the dev project, but not yet verified with signed-in users.**
+> - Done (CLI 2.122.0 via `npx`): `supabase init` + `link` (no DB password needed), `db push` (0001 + 0002), `functions deploy game`, secret `ALLOW_REVIEW_QUESTIONS=true`. `.env.local` holds the URL + publishable key (`sb_publishable_…`, public by design).
+> - Checked without a session: `POST /functions/v1/game` → `401 {"error":"not signed in"}`; REST reads of `question_versions` and `player_state` → `42501 permission denied`.
+> - **Not done:** `npm run test:online` with two test accounts (cross-device, RLS between users, concurrent duplicates). Do not describe the game as online until it passes.
+> - **Pending deploy:** migration `0003_lock_default_privileges.sql` and the 8 KB body limit in the function (from the review in §4) are committed but not pushed/deployed.
 
 ## 1. Architecture
 
@@ -52,12 +56,19 @@ browser (online build)                      Supabase
 
 ## 4. Security review status
 
-The M2 spec requires an **Opus/high review of auth, RLS and reward transactions before closing M2**. Not done yet. Ask for it once the backend is deployed and `test:online` passes. Things to check:
-- that the Edge Function's `SUPABASE_DB_URL` role bypasses RLS only server-side;
-- the `revoke`/`grant` set in 0001;
-- `handle_new_user` security definer;
-- CORS `ALLOWED_ORIGIN` (set it to the real site in production);
-- request size limits.
+Opus review of auth, RLS and reward transactions, done 15 Nov 2026 (code review; the signed-in parts still need `test:online`):
+
+| Area | Finding | Action |
+|---|---|---|
+| Auth | Function calls `auth.getUser()` with the caller's bearer token and uses only `data.user.id`; client-supplied ids are never trusted. No session → 401 (checked live). | OK |
+| DB role | `SUPABASE_DB_URL` is a function secret, never sent to the browser; the function is the only writer. | OK |
+| RLS / grants | Read-only `select` policies, no client insert/update/delete; `request_log` has no policy; anon has no table rights (checked live). `is_teacher`/`teaches` are `security definer` with a fixed `search_path`. | OK |
+| Future tables | Supabase gives anon/authenticated full rights on **new** `public` tables by default; 0001 only revoked existing ones. | **Fixed:** `0003_lock_default_privileges.sql` |
+| Reward transactions | Row lock (`for update`) is taken before the `request_log` lookup; save, rewards, mastery and log commit in one transaction; any error rolls everything back. Unit-tested with 10 concurrent duplicates. | OK |
+| Request size | `req.json()` read the whole body before `parseRequest` limits applied. | **Fixed:** body > 8000 chars → 413 |
+| Answer keys | Served only after an answer; production bank = approved/published; `ALLOW_REVIEW_QUESTIONS` must stay unset in production. | OK (dev secret is set) |
+| CORS | `ALLOWED_ORIGIN` defaults to `*`. Bearer tokens (not cookies) are used, so this is not a CSRF risk, but set it to the real site in production. | Open (production) |
+| Teacher role | Teachers can read `question_versions` (answer keys). Role changes need the service role. | OK; keep teacher accounts staff-only |
 
 ## 5. What the project owner must do to go live (dev)
 
