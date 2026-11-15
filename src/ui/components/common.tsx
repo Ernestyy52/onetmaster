@@ -27,7 +27,9 @@ export function Icon({ name, size = 32, title }: { name: IconName | string; size
 
 /** Character portrait: body sheet plus equipment overlays (bottom→top), all on the same frame. */
 export function Portrait({ appearance, layers = [], size = 56 }: { appearance: Appearance; layers?: string[]; size?: number }) {
-  const scale = size / 48;
+  // Fit the whole 48×64 frame (head to feet, incl. a weapon held low) inside the square box.
+  const scale = size / 64;
+  const offsetX = (size - 48 * scale) / 2;
   // CSS draws the first background on top, so list overlays top-first, body last.
   const images = [...layers].reverse().map((k) => `url(${BASE}assets/equipment/${k}.png)`);
   images.push(`url(${BASE}assets/sprites/${spriteKey(appearance)}.png)`);
@@ -41,7 +43,7 @@ export function Portrait({ appearance, layers = [], size = 56 }: { appearance: A
         height: size,
         backgroundImage: images.join(', '),
         backgroundSize: `${480 * scale}px ${256 * scale}px`,
-        backgroundPosition: `0px ${-8 * scale}px`,
+        backgroundPosition: `${offsetX}px 0px`,
       }}
     />
   );

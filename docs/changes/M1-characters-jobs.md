@@ -76,7 +76,7 @@ What a character wears is drawn **on the character in the world, in battle, on t
 
 - **How it works:** the player body sheet is drawn without equipment. Each equippable item has `ItemDef.visual` pointing at an **overlay sheet** in `public/assets/equipment/` that has exactly the same 48×64 grid (480×256, 40 frames, anchor 0.5,0.94). `equipmentLayers(progression)` in `src/shared/appearance.ts` returns the overlay keys bottom→top in the order **armor → shoes → charm → weapon**.
 - **Phaser:** `src/game/paperDoll.ts` adds one sprite per overlay and, on every `POST_UPDATE`, copies the body's frame index, position, depth (+0.001 per layer), alpha, scale and visibility. Hub refreshes layers on `world:refresh`; equipping now emits `world:refresh`.
-- **React:** `Portrait` stacks the same overlays as CSS backgrounds (top layer first) and exposes `data-layers` for tests. `CharacterSummary.layers` feeds the select screen.
+- **React:** `Portrait` stacks the same overlays as CSS backgrounds (top layer first) and exposes `data-layers` for tests. It scales the **whole 48×64 frame** to the box height and centres it, so weapons held low stay visible (earlier versions cropped the bottom). `CharacterSummary.layers` feeds the select screen.
 - **Overlay generation:** `buildOverlay()` renders every frame with and without the item and keeps only the pixels that differ. The overlay therefore lines up pixel-perfect with the body, including attack/victory poses and the back view (weapon carried on the back).
 
 | Item (`ITEMS` id) | Slot | Overlay key | Look |
