@@ -1,5 +1,7 @@
+import { spriteKey } from '../../shared/appearance';
+import type { Appearance } from '../../shared/types';
 import { useEffect, useRef, type ReactNode } from 'react';
-import { ICON_INDEX, type IconName } from '../icons';
+import { ICON_INDEX, ICON_NAMES, type IconName } from '../icons';
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -16,25 +18,32 @@ export function Icon({ name, size = 32, title }: { name: IconName | string; size
         width: size,
         height: size,
         backgroundImage: `url(${BASE}assets/icons/icons.png)`,
-        backgroundSize: `${13 * 32 * scale}px ${size}px`,
+        backgroundSize: `${ICON_NAMES.length * 32 * scale}px ${size}px`,
         backgroundPosition: `${-i * size}px 0`,
       }}
     />
   );
 }
 
-export function Portrait({ appearance, size = 56 }: { appearance: 'swordsman' | 'mage'; size?: number }) {
-  const scale = size / 48;
+/** Character portrait: body sheet plus equipment overlays (bottom→top), all on the same frame. */
+export function Portrait({ appearance, layers = [], size = 56 }: { appearance: Appearance; layers?: string[]; size?: number }) {
+  // Fit the whole 48×64 frame (head to feet, incl. a weapon held low) inside the square box.
+  const scale = size / 64;
+  const offsetX = (size - 48 * scale) / 2;
+  // CSS draws the first background on top, so list overlays top-first, body last.
+  const images = [...layers].reverse().map((k) => `url(${BASE}assets/equipment/${k}.png)`);
+  images.push(`url(${BASE}assets/sprites/${spriteKey(appearance)}.png)`);
   return (
     <span
       className="portrait"
       aria-hidden
+      data-layers={layers.join(' ')}
       style={{
         width: size,
         height: size,
-        backgroundImage: `url(${BASE}assets/sprites/player_${appearance}.png)`,
+        backgroundImage: images.join(', '),
         backgroundSize: `${480 * scale}px ${256 * scale}px`,
-        backgroundPosition: `0px ${-8 * scale}px`,
+        backgroundPosition: `${offsetX}px 0px`,
       }}
     />
   );

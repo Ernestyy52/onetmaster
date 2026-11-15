@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { equipmentLayers, spriteKey } from '../../shared/appearance';
+import { PaperDoll } from '../paperDoll';
 import { bus, type InteractTarget } from '../eventBus';
 import { anchors } from './BootScene';
 import { findPath, isoToWorld, tiledObjectToTile, worldToTile, type Pt } from '../../shared/iso';
@@ -26,6 +28,7 @@ export class HubScene extends Phaser.Scene {
   private map!: TiledMap;
   private blocked = new Set<string>();
   private player!: Phaser.GameObjects.Sprite;
+  private doll!: PaperDoll;
   private skin = 'player_swordsman';
   private facing: Dir = 'down';
   private path: Pt[] = [];
@@ -210,7 +213,7 @@ export class HubScene extends Phaser.Scene {
 
   private spawnPlayer() {
     const prog = useGame.getState().progression;
-    this.skin = prog?.profile?.appearance === 'mage' ? 'player_mage' : 'player_swordsman';
+    this.skin = spriteKey(prog?.profile?.appearance);
     const spawn = this.layer<TiledObjectLayer>('spawns').objects.find((o) => o.name === 'player_spawn')!;
     let tile = this.objTile(spawn);
     const last = prog?.lastPosition;
@@ -218,6 +221,8 @@ export class HubScene extends Phaser.Scene {
     const w = isoToWorld(tile.x, tile.y);
     this.player = this.add.sprite(w.x, w.y, this.skin).setOrigin(0.5, 0.94);
     this.player.play(`${this.skin}-idle-down`);
+    this.doll = new PaperDoll(this, this.player);
+    if (prog) this.doll.setLayers(equipmentLayers(prog));
   }
 
   // ───────── input ─────────
@@ -347,12 +352,13 @@ export class HubScene extends Phaser.Scene {
     const owlHasNews =
       story.quests.q_meet_owl === 'available' || story.quests.q_clear_fog === 'available' || story.quests.q_math_door === 'available';
     this.owlMarker?.setVisible(owlHasNews);
-    const skin = prog.profile?.appearance === 'mage' ? 'player_mage' : 'player_swordsman';
+    const skin = spriteKey(prog.profile?.appearance);
     if (skin !== this.skin) {
       this.skin = skin;
       this.player.setTexture(skin);
       this.player.play(`${skin}-idle-${this.facing}`);
     }
+    this.doll.setLayers(equipmentLayers(prog));
   }
 
   private enterBattle(sourceId: string | null) {

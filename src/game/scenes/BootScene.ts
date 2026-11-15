@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { PLAYER_SPRITES } from '../../shared/appearance';
 
 export interface ManifestEntry {
   key: string;
@@ -42,7 +43,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   private createAnimations() {
-    for (const skin of ['player_swordsman', 'player_mage']) {
+    for (const skin of PLAYER_SPRITES) {
       DIR_ROWS.forEach((dir, row) => {
         const f = (i: number) => row * 10 + i;
         const frames = (ids: number[]) => ids.map((i) => ({ key: skin, frame: f(i) }));

@@ -5,7 +5,9 @@ import { bus, type InteractTarget } from '../game/eventBus';
 import { ENEMIES, type PlayerAction } from '../shared/combat';
 import { SUBJECTS } from '../shared/data/catalog';
 import { QUESTS } from '../shared/story';
-import type { Appearance, RewardSummary, SubjectId } from '../shared/types';
+import { JOBS } from '../shared/data/jobs';
+import { MAX_SLOTS } from '../api/saveFormat';
+import type { Appearance, JobId, RewardSummary, SubjectId } from '../shared/types';
 import { toast, useGame, type Dialogue, type DialogueChoice } from '../state/store';
 
 const api = () => getApi();
@@ -64,23 +66,52 @@ function showRewards(title: string, rewards: RewardSummary | null, note?: string
 // ───────── boot / profile ─────────
 
 export async function boot() {
-  const progression = await api().getProgression();
-  S().set({ progression, screen: 'title' });
+  const [progression, characters] = await Promise.all([api().getProgression(), api().listCharacters()]);
+  S().set({ progression, characters, screen: 'title' });
+}
+
+function firstFreeSlot(): number | null {
+  const used = new Set(S().characters.map((c) => c.slot));
+  for (let slot = 1; slot <= MAX_SLOTS; slot++) if (!used.has(slot)) return slot;
+  return null;
 }
 
 export async function startOrContinue() {
   const p = S().progression;
-  if (!p?.profile) {
-    S().set({ screen: 'create' });
-    return;
-  }
-  S().set({ screen: 'hub' });
+  if (p?.profile) return S().set({ screen: 'hub' });
+  if (S().characters.length) return S().set({ screen: 'select' });
+  S().set({ screen: 'create', createSlot: firstFreeSlot() });
 }
 
-export async function createProfile(nickname: string, appearance: Appearance) {
-  const p = await guard(() => api().createProfile(nickname, appearance));
+export async function openCharacterSelect() {
+  const characters = await api().listCharacters();
+  S().set({ characters, screen: 'select', panel: null, dialogue: null, run: null, nearby: null, worldReady: false });
+}
+
+export function newCharacter(slot: number) {
+  S().set({ screen: 'create', createSlot: slot });
+}
+
+export async function pickCharacter(slot: number) {
+  const progression = await guard(() => api().selectCharacter(slot));
+  if (progression) S().set({ progression, screen: 'hub' });
+}
+
+export async function createCharacter(nickname: string, appearance: Appearance) {
+  const slot = S().createSlot ?? firstFreeSlot();
+  if (slot === null) return toast('ช่องตัวละครเต็มแล้ว');
+  const p = await guard(() => api().createCharacter(slot, nickname, appearance, requestId()));
   if (!p) return;
-  S().set({ progression: p, screen: 'hub' });
+  const characters = await api().listCharacters();
+  S().set({ progression: p, characters, screen: 'hub', createSlot: null });
+}
+
+export async function changeJob(job: JobId) {
+  const p = await guard(() => api().changeJob(job, requestId()));
+  if (!p) return;
+  S().set({ progression: p });
+  bus.emit('world:refresh');
+  toast(`เปลี่ยนเป็น${JOBS[job].name}แล้ว`);
 }
 
 /** Called once the hub scene is ready: resume an unfinished battle after refresh. */
@@ -184,7 +215,10 @@ export function talkOwl() {
     return say({ speaker, portrait: 'owl', lines: ['ประตูได้รับพลังแล้ว! ไปแตะประตูโรงกลจักรเพื่อเปิดมันเลย'] });
   return say({
     speaker, portrait: 'owl',
-    lines: ['เจ้าจบบทนำแล้ว ตราชิ้นแรกกำลังกลับมาส่องแสง', 'ห้องเรียนอื่น ๆ จะเปิดในรุ่นถัดไปของเกม ระหว่างนี้ลองฝึกกับหมอกลืมเลือนเพื่อเก็บ XP ต่อได้'],
+    lines: p.job === 'novice'
+      ? ['เจ้าจบบทนำแล้ว ตราชิ้นแรกกำลังกลับมาส่องแสง', 'ถึงเวลาเลือกเส้นทางของเจ้าแล้ว — นักดาบ ผู้พิทักษ์ นักเวท หรือนักธนู แต่ละอาชีพมีสกิลต่างกัน เปลี่ยนภายหลังได้เสมอ']
+      : [`${JOBS[p.job].name}ผู้กล้า ห้องเรียนอื่น ๆ จะเปิดในรุ่นถัดไปของเกม`, 'ระหว่างนี้ฝึกกับหมอกลืมเลือนเพื่อเก็บ XP และ Job Level ได้ อยากลองอาชีพอื่นก็บอกข้าได้'],
+    choices: [{ label: p.job === 'novice' ? 'เลือกอาชีพ' : 'ดู/เปลี่ยนอาชีพ', primary: true, run: () => S().set({ panel: 'jobs' }) }, later],
   });
 }
 
@@ -201,7 +235,7 @@ export async function openDoor(subject: SubjectId) {
       if (!r) return;
       S().set({ progression: r.progression });
       bus.emit('world:refresh');
-      showRewards('ประตูโรงกลจักรเปิดแล้ว!', r.rewards, 'บันทึกความคืบหน้าของเรื่องแล้ว · บทนำสำเร็จ');
+      showRewards('ประตูโรงกลจักรเปิดแล้ว!', r.rewards, 'บทนำสำเร็จ · กลับไปคุยกับอาจารย์ฮูกเพื่อเลือกอาชีพ');
       return;
     }
     if (p.story.flags.door_math_open) {
@@ -330,6 +364,7 @@ export async function equip(instanceId: string) {
   const p = await guard(() => api().equip(instanceId));
   if (p) {
     S().set({ progression: p });
+    bus.emit('world:refresh'); // redraw equipment on the character
     toast('สวมใส่แล้ว');
   }
 }

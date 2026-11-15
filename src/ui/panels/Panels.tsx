@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { ITEMS, SUBJECT_ORDER, SUBJECTS } from '../../shared/data/catalog';
+import { ACTIVE_SKILLS, FIRST_JOBS, JOBS } from '../../shared/data/jobs';
+import { canChangeJob, canEquipFor, jobLevelBar } from '../../shared/jobs';
 import { combatStats, MASTERY_LABEL } from '../../shared/progression';
 import { QUEST_ORDER, QUESTS } from '../../shared/story';
 import type { EquipSlot, QuestStatus } from '../../shared/types';
 import { useGame } from '../../state/store';
-import { acceptFromBoard, equip, openDoor, resetSave, roomBlurb, roomStatus } from '../actions';
-import { Icon, Modal } from '../components/common';
+import { acceptFromBoard, changeJob, equip, openCharacterSelect, openDoor, resetSave, roomBlurb, roomStatus } from '../actions';
+import { Bar, Icon, Modal } from '../components/common';
 
 const SLOT_LABEL: Record<EquipSlot, string> = { weapon: 'อาวุธ', armor: 'ชุด', shoes: 'รองเท้า', charm: 'เครื่องราง' };
 
@@ -14,6 +16,7 @@ export function Panels() {
   switch (panel) {
     case 'inventory': return <Inventory />;
     case 'skills': return <SkillBook />;
+    case 'jobs': return <JobsPanel />;
     case 'rooms': return <RoomMenu />;
     case 'room': return <RoomPanel />;
     case 'lesson': return <LessonPanel />;
@@ -66,14 +69,61 @@ function Inventory() {
             {def.atk ? `ATK +${def.atk} ` : ''}{def.def ? `DEF +${def.def} ` : ''}{def.heal ? `ฟื้น HP ${def.heal}` : ''}
             {def.kind === 'badge' ? 'ตราภารกิจ' : ''}
           </p>
+          {def.jobs && <p className="muted small">ใช้ได้เฉพาะ: {def.jobs.map((j) => JOBS[j].name).join(', ')}</p>}
           {def.kind === 'equipment' && (
             equippedIds.has(selected.instanceId)
               ? <span className="tag">สวมใส่อยู่</span>
-              : <button className="btn primary" onClick={() => void equip(selected.instanceId)} data-testid="btn-equip">สวมใส่</button>
+              : canEquipFor(def, p.job)
+                ? <button className="btn primary" onClick={() => void equip(selected.instanceId)} data-testid="btn-equip">สวมใส่</button>
+                : <span className="tag">{JOBS[p.job].name}ใช้ไม่ได้</span>
           )}
         </div>
       )}
     </div>
+  );
+}
+
+function JobsPanel() {
+  const p = useGame((s) => s.progression)!;
+  const busy = useGame((s) => s.busy);
+  const bar = jobLevelBar(p);
+  const cur = JOBS[p.job];
+  const stats = combatStats(p);
+  return (
+    <Modal title={<><Icon name="badge" size={24} /> อาชีพ</>} onClose={close} wide testId="jobs-panel">
+      <section className="job-current" data-testid="job-current">
+        <h3><Icon name={cur.icon} size={22} /> {cur.name} <span className="muted small">· {cur.role}</span></h3>
+        <div className="stat-row">
+          <span className="stat-label">Job Lv.{bar.level}</span>
+          {bar.max ? <span className="muted small">เลเวลสูงสุดของอาชีพนี้</span> : <><Bar value={bar.into} max={bar.needed} color="#7cc4ff" label="Job XP" height={6} /><span className="stat-num">{bar.into}/{bar.needed}</span></>}
+        </div>
+        <p className="muted small">HP {stats.maxHp} · ATK {stats.atk} · DEF {stats.def} · แต้มพลังสูงสุด {stats.maxFocus}</p>
+        <p className="muted small">Job Level ได้จากการชนะการต่อสู้ แยกจาก Adventure Level และไม่มีผลต่อการวัดความชำนาญรายวิชา</p>
+      </section>
+      <ul className="job-list">
+        {FIRST_JOBS.map((id) => {
+          const j = JOBS[id];
+          const sk = j.active ? ACTIVE_SKILLS[j.active] : null;
+          const check = canChangeJob(p, id);
+          const lv = p.jobs[id]?.level;
+          return (
+            <li key={id} className={`job-card ${p.job === id ? 'sel' : ''}`} data-testid={`job-${id}`}>
+              <div className="job-head"><Icon name={j.icon} size={28} /><strong>{j.name}</strong><span className="tag">{j.role}</span>{lv ? <span className="muted small">Job Lv.{lv}</span> : null}</div>
+              <p className="small">{j.desc}</p>
+              {sk && <p className="small"><strong>สกิล:</strong> {sk.name} <kbd>{sk.key}</kbd> — {sk.desc}</p>}
+              {j.passive && <p className="small"><strong>ติดตัว:</strong> {j.passive.name} — {j.passive.desc}</p>}
+              {p.job === id ? (
+                <span className="tag ok">อาชีพปัจจุบัน</span>
+              ) : (
+                <button className="btn primary" disabled={busy || !check.ok} onClick={() => void changeJob(id)} data-testid={`btn-job-${id}`}>
+                  {check.ok ? `เปลี่ยนเป็น${j.name}` : check.reason}
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </Modal>
   );
 }
 
@@ -215,15 +265,17 @@ function MenuPanel() {
       <ul className="controls-list">
         <li>เดิน: WASD / ลูกศร · คลิกหรือแตะพื้น · จอยซ้ายล่าง (จอสัมผัส)</li>
         <li>โต้ตอบ: Enter หรือปุ่มขวาล่าง · กระเป๋า: Tab · สมุดทักษะ: K · เลือกห้อง: M</li>
-        <li>ต่อสู้: Q โจมตี · W ป้องกัน · E เจาะเกราะ · R ตั้งโล่ · F ยา · 1–4 เลือกคำตอบ</li>
+        <li>ต่อสู้: Q โจมตี · W ป้องกัน · E เจาะเกราะ · R ตั้งโล่ · F ยา · T สกิลอาชีพ · 1–4 เลือกคำตอบ</li>
+        <li>อาชีพ: J หรือแตะป้ายอาชีพใต้ชื่อ</li>
       </ul>
+      <button className="btn" onClick={() => void openCharacterSelect()} data-testid="btn-switch-character">เปลี่ยนตัวละคร</button>
       {confirm ? (
         <div className="row">
           <button className="btn danger" onClick={() => void resetSave()}>ยืนยันลบข้อมูลทั้งหมด</button>
           <button className="btn" onClick={() => setConfirm(false)}>ยกเลิก</button>
         </div>
       ) : (
-        <button className="btn" onClick={() => setConfirm(true)}>เริ่มเกมใหม่ (ลบเซฟ)</button>
+        <button className="btn" onClick={() => setConfirm(true)}>ลบเซฟทั้งหมด (ทุกตัวละคร)</button>
       )}
     </Modal>
   );

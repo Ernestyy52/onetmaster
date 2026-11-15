@@ -62,6 +62,13 @@ export interface SkillMastery {
 
 export type EquipSlot = 'weapon' | 'armor' | 'shoes' | 'charm';
 
+export type JobId = 'novice' | 'swordsman' | 'guardian' | 'mage' | 'archer';
+
+export interface JobProgress {
+  level: number;
+  xp: number;
+}
+
 export interface ItemDef {
   id: string;
   name: string;
@@ -71,6 +78,10 @@ export interface ItemDef {
   atk?: number;
   def?: number;
   heal?: number;
+  /** paper-doll overlay sheet shown on the character when equipped (public/assets/equipment) */
+  visual?: string;
+  /** jobs allowed to equip it; omitted = every job */
+  jobs?: JobId[];
   icon: string;
 }
 
@@ -90,7 +101,11 @@ export interface StoryProgress {
   flags: Record<string, boolean>;
 }
 
-export type Appearance = 'swordsman' | 'mage';
+export type Gender = 'male' | 'female';
+/** Gender selects the body sprite; everyone starts in the same basic outfit. See shared/appearance.ts. */
+export interface Appearance {
+  gender: Gender;
+}
 
 export interface Profile {
   nickname: string;
@@ -100,13 +115,21 @@ export interface Profile {
 
 export interface Progression {
   profile: Profile | null;
+  /** character slot (1–3); 0 = no character selected */
+  slot: number;
+  /** Job (class): separate from Adventure Level and from Subject Mastery */
+  job: JobId;
+  /** per-job progress so switching jobs never loses a job's level */
+  jobs: Partial<Record<JobId, JobProgress>>;
   level: number;
   xp: number;
   hp: number;
   maxHp: number;
   inventory: ItemInstance[];
   equipment: Partial<Record<EquipSlot, string>>; // slot -> instanceId
+  /** account-wide (shared by every character): measures the child, not the character */
   mastery: Record<string, SkillMastery>;
+  /** account-wide so a new character cannot farm XP from already-seen questions */
   seenFamilies: Record<string, number>;
   story: StoryProgress;
   codex: string[];
@@ -120,4 +143,19 @@ export interface RewardSummary {
   levelBefore: number;
   levelAfter: number;
   items: { itemId: string; qty: number }[];
+  jobXp?: number;
+  jobLevelBefore?: number;
+  jobLevelAfter?: number;
+}
+
+/** What the character-select screen shows for a slot. */
+export interface CharacterSummary {
+  slot: number;
+  nickname: string;
+  appearance: Appearance;
+  level: number;
+  job: JobId;
+  jobLevel: number;
+  /** equipment overlay keys for the portrait, bottom to top */
+  layers: string[];
 }

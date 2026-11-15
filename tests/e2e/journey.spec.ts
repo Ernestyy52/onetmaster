@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 
 /**
@@ -70,11 +71,12 @@ async function advanceDialogueUntil(page: Page, choice: RegExp) {
 }
 
 /** Play a battle through the real UI. Answers correctly except where `wrongFirst` is set. */
-async function fight(page: Page, { wrongFirst = false } = {}) {
+async function fight(page: Page, { wrongFirst = false, skill = '' } = {}) {
   await expect(page.getByTestId('battle-panel')).toBeVisible();
   let answered = 0;
+  let usedSkill = false;
   for (let i = 0; i < 80; i++) {
-    if (await page.getByTestId('battle-result').isVisible()) return;
+    if (await page.getByTestId('battle-result').isVisible()) return usedSkill;
     const cont = page.getByTestId('btn-continue');
     if (await cont.isVisible()) {
       await cont.click();
@@ -91,6 +93,15 @@ async function fight(page: Page, { wrongFirst = false } = {}) {
     }
     if (await page.getByTestId('commands').isVisible()) {
       const s = await page.evaluate(() => (window as unknown as W).__onet.store.getState().run!.state);
+      if (skill && s.focus > 0) {
+        const sb = page.locator(`[data-action="${skill}"]`);
+        if (await sb.isEnabled()) {
+          await sb.click();
+          usedSkill = true;
+          await page.waitForTimeout(300);
+          continue;
+        }
+      }
       const action = s.focus > 0 && s.intent === 'beam' ? 'shield' : s.focus > 0 && s.enemyShield && !s.weakPoint ? 'pierce' : 'attack';
       const btn = page.locator(`[data-action="${action}"]`);
       if (await btn.isEnabled()) await btn.click();
@@ -160,6 +171,11 @@ test('full prototype journey', async ({ page }) => {
   await page.getByTestId('item-copper_gear_wrench').click();
   await page.getByTestId('btn-equip').click();
   await expect(page.getByTestId('inventory')).toContainText('สวมใส่อยู่');
+  // the equipped item is drawn on the HUD portrait and on the character in the world
+  await expect(page.locator('[data-testid=hud] .portrait')).toHaveAttribute('data-layers', /eq_copper_wrench/);
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { __game: { scene: { getScene(k: string): { doll: { layerKeys: string[] } } } } }).__game.scene.getScene('Hub').doll.layerKeys))
+    .toContain('eq_copper_wrench');
   await shot(page, '4-inventory');
   await page.getByRole('button', { name: 'ปิด' }).click();
 
@@ -180,7 +196,83 @@ test('full prototype journey', async ({ page }) => {
   expect(flags.story.flags.door_math_open).toBe(true);
   await shot(page, '5-after-refresh');
 
+  // M1: the owl offers the first job after the prologue; the job skill appears in battle.
+  await expect(page.getByTestId('hud-job')).toContainText('นักผจญภัยฝึกหัด');
+  await interactWith(page, 'owl');
+  await advanceDialogueUntil(page, /เลือกอาชีพ/);
+  await expect(page.getByTestId('jobs-panel')).toBeVisible();
+  await expectNoOverflow(page);
+  await shot(page, '6-jobs');
+  await page.getByTestId('btn-job-mage').click();
+  await expect(page.getByTestId('job-current')).toContainText('นักเวท');
+  await page.getByRole('button', { name: 'ปิด' }).click();
+  await expect(page.getByTestId('hud-job')).toContainText('นักเวท');
+  await expect(page.locator('[data-testid=hud] .portrait')).toHaveAttribute('data-layers', /eq_apprentice_staff/);
+  await interactWith(page, 'enemy_fog_2');
+  expect(await fight(page, { skill: 'insight_bolt' })).toBe(true);
+  await expect(page.getByTestId('battle-result')).toContainText('Job XP');
+  await page.getByTestId('btn-leave').click();
+
   expect(errors).toEqual([]);
+});
+
+test('a save from before M1 keeps its character and unfinished boss fight', async ({ page }) => {
+  const v1 = readFileSync('tests/unit/fixtures/save-v1-midboss.json', 'utf8');
+  await page.addInitScript((save) => {
+    if (!localStorage.getItem('onet-rpg-save-v2')) localStorage.setItem('onet-rpg-save-v1', save);
+  }, v1);
+  await page.goto('/?test=1');
+  await expect(page.getByTestId('btn-start')).toContainText('ต้นกล้า Lv.2');
+  await page.getByTestId('btn-start').click();
+  // the old save was mid-boss-fight right after an answer: the battle resumes
+  await expect(page.getByTestId('battle-panel')).toBeVisible({ timeout: 30_000 });
+  await fight(page);
+  await expect(page.getByTestId('battle-result')).toContainText('ชนะแล้ว');
+  await page.getByTestId('btn-leave').click();
+  await expect(page.getByTestId('hud-job')).toContainText('Job Lv.');
+});
+
+test('character slots: create a second character and switch back', async ({ page }) => {
+  await page.goto('/?test=1');
+  await page.getByTestId('btn-start').click();
+  const name = page.getByTestId('input-nickname');
+  await name.fill('ก');
+  await name.blur();
+  await expect(page.locator('#nickname-msg')).toContainText('อย่างน้อย');
+  await expect(page.getByTestId('btn-create')).toBeDisabled();
+  await name.fill('ใบไม้');
+  await page.getByTestId('btn-create').click();
+  await worldReady(page);
+
+  await page.getByRole('button', { name: 'เมนู' }).click();
+  await page.getByTestId('btn-switch-character').click();
+  await expect(page.getByTestId('select-screen')).toBeVisible();
+  await expectNoOverflow(page);
+  await shot(page, '7-select');
+  await page.getByTestId('slot-2-new').click();
+  await page.getByTestId('input-nickname').fill('ใบไม้');
+  await page.getByTestId('input-nickname').blur();
+  await expect(page.locator('#nickname-msg')).toContainText('มีตัวละครชื่อนี้');
+  await page.getByTestId('input-nickname').fill('ดอกไม้');
+  await page.getByTestId('gender-female').click();
+  await expect(page.getByTestId('create-preview')).toContainText('ดอกไม้');
+  await expect(page.getByTestId('create-preview')).toContainText('หญิง · ชุดพื้นฐาน');
+  await expect(page.getByTestId('pick-outfit')).toHaveCount(0);
+  await expect(page.locator('[data-testid=create-preview] .portrait')).toHaveAttribute('style', /player_female_basic/);
+  await shot(page, '8-create-female');
+  await page.getByTestId('btn-create').click();
+  await worldReady(page);
+  await expect(page.locator('.hud-name strong')).toHaveText('ดอกไม้');
+  await expect(page.locator('[data-testid=hud] .portrait')).toHaveAttribute('style', /player_female_basic/);
+  const skin = await page.evaluate(() => (window as unknown as { __game: { scene: { getScene(k: string): { skin: string } } } }).__game.scene.getScene('Hub').skin);
+  expect(skin).toBe('player_female_basic');
+
+  await page.reload();
+  await expect(page.getByTestId('btn-start')).toContainText('ดอกไม้');
+  await page.getByTestId('btn-characters').click();
+  await page.getByTestId('slot-1').click();
+  await worldReady(page);
+  await expect(page.locator('.hud-name strong')).toHaveText('ใบไม้');
 });
 
 test('refresh during a battle resumes the same turn', async ({ page }) => {
