@@ -8,7 +8,7 @@
 > - Checked without a session: `POST /functions/v1/game` → `401 {"error":"not signed in"}`; REST reads of `question_versions` and `player_state` → `42501 permission denied`.
 > - **Not done:** `npm run test:online` with two test accounts (cross-device, RLS between users, concurrent duplicates). Do not describe the game as online until it passes.
 > - 16 Nov 2026: migration `0003_lock_default_privileges.sql` pushed and the function (8000-char body limit) redeployed; the anonymous checks above still pass.
-> - **Not deployed yet:** the `importLocalSave` op (§3) and the 32000-char body limit. Redeploy with `npm run supabase:build && npx supabase@2.122.0 functions deploy game --use-api`.
+> - 16 Nov 2026: function redeployed with the `importLocalSave` op (§3) and the 32000-char body cap; anonymous calls still get 401. Redeploy command: `npm run supabase:build && npx supabase@2.122.0 functions deploy game --use-api`.
 
 ## 1. Architecture
 
