@@ -7,7 +7,7 @@
 > - Done (CLI 2.122.0 via `npx`): `supabase init` + `link` (no DB password needed), `db push` (0001 + 0002), `functions deploy game`, secret `ALLOW_REVIEW_QUESTIONS=true`. `.env.local` holds the URL + publishable key (`sb_publishable_…`, public by design).
 > - Checked without a session: `POST /functions/v1/game` → `401 {"error":"not signed in"}`; REST reads of `question_versions` and `player_state` → `42501 permission denied`.
 > - **Not done:** `npm run test:online` with two test accounts (cross-device, RLS between users, concurrent duplicates). Do not describe the game as online until it passes.
-> - **Pending deploy:** migration `0003_lock_default_privileges.sql` and the 8 KB body limit in the function (from the review in §4) are committed but not pushed/deployed.
+> - 16 Nov 2026: migration `0003_lock_default_privileges.sql` pushed and the function (8000-char body limit) redeployed; the anonymous checks above still pass.
 
 ## 1. Architecture
 
