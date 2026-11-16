@@ -1,4 +1,4 @@
-# หอคอยสี่วิชา · O-NET ป.6 RPG (ต้นแบบ)
+# Lorebound: Tower of Four · หอคอยสี่วิชา · O-NET ป.6 RPG (ต้นแบบ)
 
 เกม RPG Pixel Art แบบ 2D Isometric บนเว็บ สำหรับฝึกความรู้ O-NET ป.6 สี่วิชา เล่นได้ทั้งคอมพิวเตอร์และมือถือจากลิงก์เดียว
 รายละเอียดการออกแบบทั้งหมดอยู่ใน [`handoff.md`](handoff.md) — repo นี้คือ **ระยะ “ต้นแบบเล่นจริง”** (handoff §8 แถวแรก) · แผนพัฒนาเป็น MMORPG: [`docs/adr/0001-mmorpg-foundation.md`](docs/adr/0001-mmorpg-foundation.md) — ปัจจุบันยังเล่นคนเดียวแบบออฟไลน์

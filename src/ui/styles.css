@@ -113,6 +113,7 @@ kbd {
 .title-card { width: min(520px, 100%); padding: 24px 20px; text-align: center; display: grid; gap: 14px; justify-items: center; }
 .title-card h1 { font-size: clamp(34px, 9vw, 52px); color: var(--gold); text-shadow: 3px 3px 0 var(--ink); letter-spacing: 1px; }
 .title-card .h-sm { font-size: 28px; }
+.title-sub { margin: -10px 0 0; font-family: var(--font-head); font-size: clamp(16px, 4.5vw, 20px); color: var(--text); }
 .eyebrow { margin: 0; color: var(--muted); font-family: var(--font-head); }
 .lead { margin: 0; }
 .subject-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }

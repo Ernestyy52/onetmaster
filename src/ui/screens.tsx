@@ -21,7 +21,8 @@ export function TitleScreen() {
     <div className="screen title-screen">
       <div className="title-card panel">
         <p className="eyebrow">เกม RPG เตรียมสอบ O-NET ป.6</p>
-        <h1>หอคอยสี่วิชา</h1>
+        <h1>Lorebound</h1>
+        <p className="title-sub">Tower of Four · หอคอยสี่วิชา</p>
         <div className="subject-row">
           {SUBJECT_ORDER.map((s) => (
             <span key={s} className="subject-chip" style={{ background: SUBJECTS[s].color }}>
