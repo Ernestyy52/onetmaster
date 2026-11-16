@@ -6,19 +6,19 @@
 // logic server-side.
 import { equipmentLayers, isAppearance, normalizeAppearance } from '../shared/appearance';
 import { ITEMS } from '../shared/data/catalog';
-import { JOBS } from '../shared/data/jobs';
+import { FIRST_JOBS, JOBS } from '../shared/data/jobs';
 import { applyAction, applyAnswer, canUse, createCombat, ENEMIES, type PlayerAction } from '../shared/combat';
-import { addJobXp, canChangeJob, canEquipFor, jobProgress } from '../shared/jobs';
+import { addJobXp, canChangeJob, canEquipFor, jobLevelForXp, jobProgress, jobXpToReach } from '../shared/jobs';
 import { validateNickname } from '../shared/nickname';
-import { combatStats, levelForXp, newMastery, questionXp, recordMastery } from '../shared/progression';
+import { combatStats, levelForXp, newMastery, questionXp, recordMastery, xpToReach } from '../shared/progression';
 import { selectNextQuestion, shuffleOptions, toPublic } from '../shared/questionSelector';
-import { QUESTS, refreshAvailability } from '../shared/story';
+import { CHAPTERS, QUEST_ORDER, QUESTS, refreshAvailability } from '../shared/story';
 import type { Appearance, CharacterSummary, EquipSlot, JobId, Progression, QuestionItem, ReviewStatus, RewardSummary } from '../shared/types';
 import {
   freshCharacter, loadSave, MAX_SLOTS, SAVE_KEY_V1, SAVE_KEY_V2, trimRequests,
   type CharacterRecord, type RunRecord, type SaveV2,
 } from './saveFormat';
-import type { ActionResult, GameApi, QuestResult, RunView } from './types';
+import type { ActionResult, GameApi, LocalImport, QuestResult, RunView } from './types';
 
 export interface KeyValueStorage {
   getItem(key: string): string | null;
@@ -42,6 +42,10 @@ export class MemoryStorage implements KeyValueStorage {
 /** Prototype: items awaiting teacher review are playable but flagged in the UI. */
 export const PROTOTYPE_ALLOWED_STATUSES: ReviewStatus[] = ['review', 'approved', 'published'];
 const HINTS_PER_RUN = 2;
+/** Imported job levels are capped here: about what the prologue's fights can give. */
+const IMPORT_MAX_JOB_LEVEL = 5;
+/** Non-negative integer from untrusted input, else 0. */
+const count = (v: unknown, max = 1e6): number => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(max, Math.floor(v))) : 0);
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
@@ -125,6 +129,10 @@ export class LocalGameApi implements GameApi {
   }
 
   async listCharacters(): Promise<CharacterSummary[]> {
+    return this.summaries();
+  }
+
+  private summaries(): CharacterSummary[] {
     return this.save.characters
       .filter((c) => c.profile)
       .sort((a, b) => a.slot - b.slot)
@@ -162,6 +170,13 @@ export class LocalGameApi implements GameApi {
     return this.once(requestId, () => {
       const check = canChangeJob(this.p, job);
       if (!check.ok) throw new Error(check.reason);
+      this.applyJob(job);
+      return this.viewOf(this.p);
+    });
+  }
+
+  private applyJob(job: JobId) {
+    {
       const c = this.p;
       c.job = job;
       c.jobs[job] = c.jobs[job] ?? { level: 1, xp: 0 };
@@ -180,7 +195,73 @@ export class LocalGameApi implements GameApi {
       }
       if (!c.codex.includes(`job:${job}`)) c.codex.push(`job:${job}`);
       this.syncMaxHp(true);
-      return this.viewOf(c);
+    }
+  }
+
+  async importLocalSave(data: LocalImport, requestId: string): Promise<CharacterSummary[]> {
+    return this.once(requestId, () => {
+      if (this.save.characters.length || this.save.importedAt) throw new Error('นำเข้าได้เฉพาะบัญชีใหม่ที่ยังไม่มีตัวละคร');
+      const list = Array.isArray(data?.characters) ? data.characters.slice(0, MAX_SLOTS) : [];
+      if (!list.length) throw new Error('ไม่พบตัวละครในเครื่องนี้');
+      // validate every character before changing anything
+      const names: string[] = [];
+      const slots = new Set<number>();
+      const checked = list.map((pc) => {
+        if (!Number.isInteger(pc?.slot) || pc.slot < 1 || pc.slot > MAX_SLOTS || slots.has(pc.slot)) throw new Error('ช่องตัวละครไม่ถูกต้อง');
+        slots.add(pc.slot);
+        const name = validateNickname(String(pc.nickname ?? ''), names);
+        if (!name.ok) throw new Error(name.reason);
+        names.push(name.value);
+        return { pc, nickname: name.value };
+      });
+      const xpCap = xpToReach(CHAPTERS.prologue.levelRange[1]);
+      const jobXpCap = jobXpToReach(IMPORT_MAX_JOB_LEVEL);
+      for (const { pc, nickname } of checked) {
+        const c = freshCharacter(pc.slot);
+        c.profile = { nickname, appearance: normalizeAppearance(pc.appearance), createdAt: new Date().toISOString() };
+        this.save.characters.push(c);
+        this.save.selected = pc.slot;
+        // Rebuild from the quest chain (in order) so items and flags come only from real quest rewards.
+        const done = new Set(Array.isArray(pc.questsDone) ? pc.questsDone : []);
+        for (const id of QUEST_ORDER) {
+          if (!done.has(id) || c.story.quests[id] === 'locked') break;
+          this.finishQuest(id);
+        }
+        // Extra XP from fights, never above the prologue's level range.
+        const extra = Math.min(count(pc.xp), xpCap) - c.xp;
+        if (extra > 0) this.grant(extra, []);
+        const noviceXp = Math.min(count(pc.jobs?.novice?.xp), jobXpCap);
+        c.jobs.novice = { xp: noviceXp, level: jobLevelForXp('novice', noviceXp) };
+        if (FIRST_JOBS.includes(pc.job) && canChangeJob(c, pc.job).ok) {
+          this.applyJob(pc.job);
+          const jobXp = Math.min(count(pc.jobs?.[pc.job]?.xp), jobXpCap);
+          c.jobs[pc.job] = { xp: jobXp, level: jobLevelForXp(pc.job, jobXp) };
+        }
+        for (const itemId of Array.isArray(pc.equipped) ? pc.equipped : []) {
+          const inst = c.inventory.find((i) => i.itemId === itemId);
+          const def = inst ? ITEMS[inst.itemId] : undefined;
+          if (inst && def?.slot && canEquipFor(def, c.job)) c.equipment[def.slot] = inst.instanceId;
+        }
+        this.syncMaxHp(true);
+      }
+      // Seen families only lower future question XP, so keeping them is safe; unknown ids are dropped.
+      const families = new Set(this.bank.map((q) => q.variant_family_id));
+      for (const [id, n] of Object.entries(data.seenFamilies ?? {})) {
+        if (families.has(id)) this.acct.seenFamilies[id] = Math.max(this.acct.seenFamilies[id] ?? 0, count(n, 1000));
+      }
+      // Offline mastery is a reference copy only: the teacher view counts what is answered online.
+      const skills = new Set(this.bank.map((q) => q.skill_id));
+      const now = new Date().toISOString();
+      const reference: Record<string, { attempts: number; correct: number }> = {};
+      for (const [id, m] of Object.entries(data.mastery ?? {})) {
+        if (!skills.has(id)) continue;
+        const attempts = count(m?.attempts, 10000);
+        reference[id] = { attempts, correct: Math.min(attempts, count(m?.correct, 10000)) };
+      }
+      this.acct.importedReference = { at: now, mastery: reference };
+      this.save.importedAt = now;
+      this.save.selected = checked[0].pc.slot;
+      return this.summaries();
     });
   }
 

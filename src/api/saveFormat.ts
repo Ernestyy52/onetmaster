@@ -1,7 +1,7 @@
 // Local save format + versioned migrations. Pure functions so they can be unit-tested with real
 // old saves (tests/unit/fixtures). Rule: never drop a player's progress when the format changes,
 // and never delete the previous version's key (it is the rollback path).
-import type { AnswerResult, RunResult } from './types';
+import type { AnswerResult, LocalImport, RunResult } from './types';
 import { ENEMIES, type CombatState } from '../shared/combat';
 import { normalizeAppearance } from '../shared/appearance';
 import { BASE_STATS } from '../shared/data/catalog';
@@ -42,6 +42,8 @@ export type CharacterRecord = Omit<Progression, 'mastery' | 'seenFamilies'>;
 export interface AccountRecord {
   mastery: Record<string, SkillMastery>;
   seenFamilies: Record<string, number>;
+  /** offline mastery copied in by importLocalSave: shown for reference, never a measured result */
+  importedReference?: { at: string; mastery: Record<string, { attempts: number; correct: number }> };
 }
 
 export interface SaveV1 {
@@ -63,6 +65,8 @@ export interface SaveV2 {
   counter: number;
   /** when/what this save was migrated from (diagnostics only) */
   migratedFrom?: { version: number; at: string };
+  /** set when offline progress was imported (online accounts accept it only once) */
+  importedAt?: string;
 }
 
 export function freshCharacter(slot: number): CharacterRecord {
@@ -158,4 +162,23 @@ export function loadSave(rawV2: string | null, rawV1: string | null): { save: Sa
   const v1 = parse(rawV1) as SaveV1 | null;
   if (v1 && v1.version === 1 && v1.progression) return { save: migrateV1(v1), migrated: true };
   return { save: emptySave(), migrated: false };
+}
+
+/** The part of an offline save that is offered to a new online account; null if there is nothing to move. */
+export function toLocalImport(save: SaveV2): LocalImport | null {
+  const characters = save.characters
+    .filter((c) => c.profile)
+    .map((c) => ({
+      slot: c.slot,
+      nickname: c.profile!.nickname,
+      appearance: c.profile!.appearance,
+      xp: c.xp,
+      job: c.job,
+      jobs: Object.fromEntries(Object.entries(c.jobs).map(([j, p]) => [j, { xp: p?.xp ?? 0 }])),
+      questsDone: Object.entries(c.story.quests).filter(([, st]) => st === 'done').map(([id]) => id),
+      equipped: Object.values(c.equipment).map((id) => c.inventory.find((i) => i.instanceId === id)?.itemId).filter((x): x is string => !!x),
+    }));
+  if (!characters.length) return null;
+  const mastery = Object.fromEntries(Object.values(save.account.mastery).map((m) => [m.skill_id, { attempts: m.attempts, correct: m.correct }]));
+  return { characters, seenFamilies: { ...save.account.seenFamilies }, mastery };
 }

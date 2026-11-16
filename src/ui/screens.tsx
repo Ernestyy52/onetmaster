@@ -6,9 +6,11 @@ import { BASIC_OUTFIT_LABEL, DEFAULT_APPEARANCE, equipmentLayers, GENDERS } from
 import type { Appearance, Gender } from '../shared/types';
 import { useGame } from '../state/store';
 import { ONLINE } from '../api';
-import { boot, createCharacter, newCharacter, pickCharacter, startOrContinue } from './actions';
+import { boot, createCharacter, declineLocalImport, importLocalProgress, newCharacter, pickCharacter, startOrContinue } from './actions';
 import { Icon, Portrait } from './components/common';
 import { SUBJECT_ORDER, SUBJECTS } from '../shared/data/catalog';
+import { levelForXp } from '../shared/progression';
+import { CHAPTERS } from '../shared/story';
 /** What a new character wears (wooden sword + apprentice robe), so the preview matches the game. */
 const STARTER_LAYERS = equipmentLayers(freshCharacter(0));
 
@@ -16,6 +18,8 @@ export function TitleScreen() {
   const p = useGame((s) => s.progression);
   const characters = useGame((s) => s.characters);
   const set = useGame((s) => s.set);
+  const offer = useGame((s) => s.importOffer);
+  const busy = useGame((s) => s.busy);
   const current = p?.profile ? p : null;
   return (
     <div className="screen title-screen">
@@ -31,7 +35,18 @@ export function TitleScreen() {
           ))}
         </div>
         <p className="lead">ตราแห่งความรู้ทั้งสี่แตกกระจาย ใช้ความรู้เปิดจุดอ่อนของศัตรู แล้วฟื้นฟูสถาบันนักผจญภัย</p>
-        <button className="btn primary big" onClick={() => void startOrContinue()} data-testid="btn-start" autoFocus>
+        {offer && (
+          <div className="import-offer" role="group" aria-labelledby="import-offer-title" data-testid="import-offer">
+            <p id="import-offer-title"><strong>พบตัวละครจากโหมดออฟไลน์ในเครื่องนี้</strong></p>
+            <p className="small">{offer.characters.map((c) => `${c.nickname} Lv.${levelForXp(c.xp)}`).join(' · ')}</p>
+            <p className="muted small">นำขึ้นบัญชีได้ครั้งเดียว · เลเวลสูงสุดที่นำเข้าได้ Lv.{CHAPTERS.prologue.levelRange[1]} · ไอเทมมาจากเควสต์ที่ทำแล้ว · ผลวิชาในเครื่องเก็บไว้ดูอ้างอิง ไม่นับเป็นผลวัดของครู</p>
+            <div className="import-actions">
+              <button className="btn primary" disabled={busy} onClick={() => void importLocalProgress()} data-testid="btn-import">นำขึ้นบัญชี</button>
+              <button className="btn" disabled={busy} onClick={declineLocalImport}>ไม่ใช้ เริ่มใหม่</button>
+            </div>
+          </div>
+        )}
+        <button className="btn primary big" onClick={() => void startOrContinue()} data-testid="btn-start" autoFocus={!offer}>
           {current ? `เล่นต่อ · ${current.profile!.nickname} Lv.${current.level}` : characters.length ? 'เลือกตัวละคร' : 'เริ่มผจญภัย'}
         </button>
         {current && (

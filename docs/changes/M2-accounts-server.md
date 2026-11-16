@@ -8,6 +8,7 @@
 > - Checked without a session: `POST /functions/v1/game` → `401 {"error":"not signed in"}`; REST reads of `question_versions` and `player_state` → `42501 permission denied`.
 > - **Not done:** `npm run test:online` with two test accounts (cross-device, RLS between users, concurrent duplicates). Do not describe the game as online until it passes.
 > - 16 Nov 2026: migration `0003_lock_default_privileges.sql` pushed and the function (8000-char body limit) redeployed; the anonymous checks above still pass.
+> - **Not deployed yet:** the `importLocalSave` op (§3) and the 32000-char body limit. Redeploy with `npm run supabase:build && npx supabase@2.122.0 functions deploy game --use-api`.
 
 ## 1. Architecture
 
@@ -50,7 +51,14 @@ browser (online build)                      Supabase
 
 ## 3. Data and migration notes
 
-- `player_state.save` is created empty on the first write. Local (offline) progress is **not** uploaded yet. Planned: an `importLocalSave` op that clamps values server-side (ADR D5.3); not built.
+- `player_state.save` is created empty on the first write.
+- **Importing offline progress (ADR D5.3), op `importLocalSave(data, requestId)`.** After sign-in, a new account with no characters sees a one-time offer on the title screen if this device has offline characters (`toLocalImport()` in `saveFormat.ts`; the "answered" mark is the `onet-import-answered` localStorage key). The offline save itself is kept. The server trusts nothing in the payload:
+  - It runs only for an account with no characters and no earlier import (`save.importedAt`). A second try returns 409.
+  - Each character is rebuilt from a fresh one. Quests count only as an unbroken chain in `QUEST_ORDER`, so items and flags come only from real quest rewards. Unknown or unearned items are dropped.
+  - Adventure XP is capped at the prologue's top level (Lv.5, `CHAPTERS.prologue.levelRange`). Job XP is capped at job Lv.5. A first job is applied only if the rebuilt prologue is complete.
+  - Nicknames go through `validateNickname`. Any invalid character rejects the whole import, so nothing is half-imported.
+  - `seenFamilies` is kept for known families only (this only lowers future XP). Offline mastery is stored as `account.importedReference` and is **not** copied to `account.mastery` or the teacher `mastery` table.
+  - Payload limit: 24000 characters for this op only (all other ops stay at 4000). The function rejects bodies over 32000.
 - `profiles.role` defaults to `student`. Make a teacher with the service role / SQL editor: `update profiles set role='teacher' where id='…'`.
 - `mastery` and `reward_events` are projections and audit rows written in the same transaction as the save. The save stays the source of truth.
 
@@ -94,6 +102,6 @@ The owner must do these steps, because they need their own login, database passw
 
 ## 6. Not done / open
 
-- Real-backend verification (§5 step 7), the security review (§4), and local-save import.
+- Real-backend verification (§5 step 7). The offline-import op is unit-tested but not yet exercised against the live backend.
 - Child accounts by email/password are a dev stopgap. Production should use teacher-issued class accounts or codes (M6).
 - `e2e` runs offline only; an online e2e needs a deployed backend and test accounts.

@@ -6,7 +6,7 @@ import { ENEMIES, type PlayerAction } from '../shared/combat';
 import { SUBJECTS } from '../shared/data/catalog';
 import { QUESTS } from '../shared/story';
 import { JOBS } from '../shared/data/jobs';
-import { MAX_SLOTS } from '../api/saveFormat';
+import { loadSave, MAX_SLOTS, SAVE_KEY_V1, SAVE_KEY_V2, toLocalImport } from '../api/saveFormat';
 import type { Appearance, JobId, RewardSummary, SubjectId } from '../shared/types';
 import { toast, useGame, type Dialogue, type DialogueChoice } from '../state/store';
 
@@ -70,12 +70,49 @@ export async function boot() {
     await initApi();
     if (ONLINE && !(await (await import('../api/auth')).hasSession())) return S().set({ screen: 'auth' });
     const [progression, characters] = await Promise.all([api().getProgression(), api().listCharacters()]);
-    S().set({ progression, characters, screen: 'title', error: null });
+    S().set({ progression, characters, screen: 'title', error: null, importOffer: ONLINE && !characters.length ? localImportOffer() : null });
   } catch (e) {
     console.error(e);
     if (e instanceof Error && e.name === 'NotSignedInError') return S().set({ screen: 'auth' });
     S().set({ screen: 'auth', error: ONLINE ? 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง' : 'โหลดเกมไม่สำเร็จ' });
   }
+}
+
+const IMPORT_ANSWERED_KEY = 'onet-import-answered';
+
+/** Offline characters on this device that a new online account could take over (asked once per device). */
+function localImportOffer() {
+  try {
+    if (localStorage.getItem(IMPORT_ANSWERED_KEY)) return null;
+    return toLocalImport(loadSave(localStorage.getItem(SAVE_KEY_V2), localStorage.getItem(SAVE_KEY_V1)).save);
+  } catch {
+    return null;
+  }
+}
+
+function markImportAnswered() {
+  try {
+    localStorage.setItem(IMPORT_ANSWERED_KEY, new Date().toISOString());
+  } catch {
+    /* blocked storage: the server still refuses a second import */
+  }
+}
+
+/** Move this device's offline characters into the (empty) online account. The offline save is kept. */
+export async function importLocalProgress() {
+  const offer = S().importOffer;
+  if (!offer) return;
+  const characters = await guard(() => api().importLocalSave(offer, requestId()));
+  if (!characters) return;
+  markImportAnswered();
+  const progression = await api().getProgression();
+  S().set({ characters, progression, importOffer: null });
+  toast(`นำตัวละคร ${characters.length} ตัวขึ้นบัญชีแล้ว`);
+}
+
+export function declineLocalImport() {
+  markImportAnswered();
+  S().set({ importOffer: null });
 }
 
 export async function signOutOnline() {

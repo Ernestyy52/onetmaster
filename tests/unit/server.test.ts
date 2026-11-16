@@ -1,14 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import type { SaveV2 } from '../../src/api/saveFormat';
-import type { RunView } from '../../src/api/types';
+import { toLocalImport, type SaveV2 } from '../../src/api/saveFormat';
+import type { LocalImport, RunView } from '../../src/api/types';
 import { QUESTION_BANK } from '../../src/shared/data/questions';
 import type { SkillMastery } from '../../src/shared/types';
 import { handleRequest, OpError, parseRequest, toBank, type OpName, type RewardRow, type ServerOptions, type StateStore, type StateTx } from '../../src/server/gameHandler';
 
 const DEV: ServerOptions = { allowedStatuses: ['review', 'approved', 'published'], rng: () => 0.3 };
 const PROD: ServerOptions = { allowedStatuses: ['approved', 'published'], rng: () => 0.3 };
+const QUEST_SKILL = QUESTION_BANK[0].skill_id;
 const key = (v: RunView) => QUESTION_BANK.find((q) => q.id === v.turn!.question.id)!.answer_key;
 
 /** In-memory stand-in for Postgres: one row per user, a per-user lock, rollback on throw. */
@@ -153,6 +154,86 @@ describe('server-authoritative game (in-memory store)', () => {
     await prod('createCharacter', 1, 'ใบไม้', { gender: 'male' }, randomUUID());
     const pv = await prod<RunView>('startRun', 'fog_wisp', randomUUID());
     expect(pv.turn).toBeNull(); // no approved questions → no question shown, combat continues
+  });
+});
+
+describe('importing offline progress into a new account (ADR D5.3)', () => {
+  async function playedOffline(store: MemoryStore) {
+    const call = client(store, 'device');
+    await call('createCharacter', 1, 'ต้นกล้า', { gender: 'female' }, randomUUID());
+    await call('talk', 'owl', randomUUID());
+    await call('acceptQuest', 'q_clear_fog', randomUUID());
+    await fight(call, 'fog_wisp');
+    await call('acceptQuest', 'q_math_door', randomUUID());
+    await fight(call, 'gear_warden');
+    await call('completeQuest', 'q_math_door', randomUUID());
+    await call('changeJob', 'mage', randomUUID());
+    return store.saves.get('device')!;
+  }
+
+  it('moves an honest offline character over with its quests, job and gear', async () => {
+    const store = new MemoryStore();
+    const local = await playedOffline(store);
+    const call = client(store, 'user-a');
+    const list = await call<{ nickname: string; level: number; job: string }[]>('importLocalSave', toLocalImport(local), randomUUID());
+    const before = local.characters[0];
+    expect(list).toEqual([expect.objectContaining({ nickname: 'ต้นกล้า', level: before.level, job: 'mage' })]);
+    const p = await call<{ story: { flags: Record<string, boolean>; quests: Record<string, string> }; inventory: { itemId: string }[] }>('getProgression');
+    expect(p.story.flags.door_math_open).toBe(true);
+    expect(Object.values(p.story.quests).every((s) => s === 'done')).toBe(true);
+    expect(p.inventory.map((i) => i.itemId)).toEqual(expect.arrayContaining(['wind_boots', 'badge_gear_awakener']));
+    const saved = store.saves.get('user-a')!;
+    expect(saved.account.mastery).toEqual({}); // offline answers are not measured mastery
+    expect(Object.keys(saved.account.importedReference!.mastery).length).toBeGreaterThan(0);
+  });
+
+  it('clamps a forged save: no skipped quests, no level or job beyond the prologue, no unknown items', async () => {
+    const store = new MemoryStore();
+    const call = client(store, 'user-a');
+    const forged: LocalImport = {
+      characters: [{
+        slot: 1, nickname: 'แฮกเกอร์', appearance: { gender: 'male' }, xp: 1e12, job: 'mage',
+        jobs: { novice: { xp: 1e9 }, mage: { xp: 1e9 } }, questsDone: ['q_math_door'], equipped: ['legend_blade', 'wooden_sword'],
+      }],
+      seenFamilies: { not_a_family: 1 },
+      mastery: { fake_skill: { attempts: 5, correct: 5 }, [QUEST_SKILL]: { attempts: 3, correct: 99 } },
+    };
+    await call('importLocalSave', forged, randomUUID());
+    const c = store.saves.get('user-a')!.characters[0];
+    expect(c.level).toBeLessThanOrEqual(5);
+    expect(c.job).toBe('novice'); // prologue not really finished, so no job change
+    expect(c.jobs.novice!.level).toBeLessThanOrEqual(5);
+    expect(c.jobs.mage).toBeUndefined();
+    expect(Object.values(c.story.quests).includes('done')).toBe(false); // q_math_door alone skips the chain
+    expect(c.inventory.map((i) => i.itemId).sort()).toEqual(['apprentice_robe', 'focus_potion', 'wooden_sword']);
+    const acct = store.saves.get('user-a')!.account;
+    expect(acct.seenFamilies).toEqual({});
+    expect(acct.importedReference!.mastery).toEqual({ [QUEST_SKILL]: { attempts: 3, correct: 3 } });
+  });
+
+  it('runs once per account, never into an account that already plays, and rejects bad names', async () => {
+    const store = new MemoryStore();
+    const local = toLocalImport(await playedOffline(store))!;
+    const call = client(store, 'user-a');
+    const rid = randomUUID();
+    const first = await call('importLocalSave', local, rid);
+    expect(await call('importLocalSave', local, rid)).toEqual(first); // retry = same answer
+    await expect(call('importLocalSave', local, randomUUID())).rejects.toMatchObject({ status: 409 });
+
+    const b = client(store, 'user-b');
+    await b('createCharacter', 1, 'ใบไม้', { gender: 'male' }, randomUUID());
+    await expect(b('importLocalSave', local, randomUUID())).rejects.toMatchObject({ status: 409 });
+
+    const c = client(store, 'user-c');
+    const bad = { ...local, characters: [{ ...local.characters[0], nickname: 'x' }] };
+    await expect(c('importLocalSave', bad, randomUUID())).rejects.toMatchObject({ status: 409 });
+    expect(store.saves.get('user-c')).toBeUndefined(); // nothing half-imported
+  });
+
+  it('only the import op may carry a large argument', () => {
+    const big = { characters: [], seenFamilies: Object.fromEntries(Array.from({ length: 400 }, (_, i) => [`f${i}`, 1])), mastery: {} };
+    expect(() => parseRequest({ op: 'importLocalSave', args: [big, randomUUID()] })).not.toThrow();
+    expect(() => parseRequest({ op: 'talk', args: [JSON.stringify(big), randomUUID()] })).toThrow('too large');
   });
 });
 

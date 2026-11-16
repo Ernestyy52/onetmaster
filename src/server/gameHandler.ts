@@ -6,7 +6,10 @@ import { LocalGameApi, MemoryStorage } from '../api/localGameApi';
 import { emptySave, SAVE_KEY_V2, type SaveV2 } from '../api/saveFormat';
 import type { QuestionItem, ReviewStatus, SkillMastery } from '../shared/types';
 
-/** Operations the client may call, and where the request id sits in their argument list (null = none). */
+/**
+ * Operations the client may call, and where the request id sits in their argument list (null = none).
+ * `maxChars` raises the default 4000-character argument limit for the one op that carries a save.
+ */
 export const OPS = {
   getProgression: { write: false, rid: null },
   listCharacters: { write: false, rid: null },
@@ -14,6 +17,7 @@ export const OPS = {
   createCharacter: { write: true, rid: 3 },
   selectCharacter: { write: true, rid: null },
   changeJob: { write: true, rid: 1 },
+  importLocalSave: { write: true, rid: 1, maxChars: 24000 },
   talk: { write: true, rid: 1 },
   acceptQuest: { write: true, rid: 1 },
   completeQuest: { write: true, rid: 1 },
@@ -25,7 +29,7 @@ export const OPS = {
   equip: { write: true, rid: null },
   unequip: { write: true, rid: null },
   savePosition: { write: true, rid: null },
-} as const satisfies Record<string, { write: boolean; rid: number | null }>;
+} as const satisfies Record<string, { write: boolean; rid: number | null; maxChars?: number }>;
 // `reset` is intentionally not available online (a child must not wipe a classroom account).
 
 export type OpName = keyof typeof OPS;
@@ -52,8 +56,8 @@ export function parseRequest(body: unknown): ParsedRequest {
   if (!b || typeof b.op !== 'string' || !(b.op in OPS)) throw new OpError('unknown operation');
   const args = b.args === undefined ? [] : b.args;
   if (!Array.isArray(args) || args.length > 6) throw new OpError('bad arguments');
-  if (JSON.stringify(args).length > 4000) throw new OpError('arguments too large');
-  const spec = OPS[b.op as OpName];
+  const spec: { write: boolean; rid: number | null; maxChars?: number } = OPS[b.op as OpName];
+  if (JSON.stringify(args).length > (spec.maxChars ?? 4000)) throw new OpError('arguments too large');
   let requestId: string | null = null;
   if (spec.rid !== null) {
     const rid = args[spec.rid];

@@ -6,7 +6,7 @@ import { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from '@s
 import type { PlayerAction } from '../shared/combat';
 import type { Appearance, CharacterSummary, EquipSlot, JobId, Progression } from '../shared/types';
 import { supabase } from './supabaseClient';
-import type { ActionResult, GameApi, QuestResult, RunView } from './types';
+import type { ActionResult, GameApi, LocalImport, QuestResult, RunView } from './types';
 
 export class NotSignedInError extends Error {
   constructor() {
@@ -42,6 +42,7 @@ export class SupabaseGameApi implements GameApi {
   getProgression = () => call<Progression>('getProgression');
   listCharacters = () => call<CharacterSummary[]>('listCharacters');
   createCharacter = (slot: number, nickname: string, appearance: Appearance, requestId: string) => call<Progression>('createCharacter', slot, nickname, appearance, requestId);
+  importLocalSave = (data: LocalImport, requestId: string) => call<CharacterSummary[]>('importLocalSave', data, requestId);
   selectCharacter = (slot: number) => call<Progression>('selectCharacter', slot);
   changeJob = (job: JobId, requestId: string) => call<Progression>('changeJob', job, requestId);
   talk = (npc: string, requestId: string) => call<QuestResult>('talk', npc, requestId);

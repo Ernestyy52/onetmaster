@@ -1,6 +1,6 @@
 // Shared store read by both React (hooks) and Phaser (getState / subscribe).
 import { create } from 'zustand';
-import type { RunView } from '../api/types';
+import type { LocalImport, RunView } from '../api/types';
 import type { InteractTarget } from '../game/eventBus';
 import type { CharacterSummary, Progression, RewardSummary, SubjectId } from '../shared/types';
 
@@ -39,6 +39,8 @@ export interface GameStore {
   characters: CharacterSummary[];
   /** slot the create screen will fill */
   createSlot: number | null;
+  /** online: offline progress found on this device, offered once to a new account */
+  importOffer: LocalImport | null;
   nearby: InteractTarget | null;
   dialogue: Dialogue | null;
   panel: Panel;
@@ -60,6 +62,7 @@ export const useGame = create<GameStore>((set) => ({
   progression: null,
   characters: [],
   createSlot: null,
+  importOffer: null,
   nearby: null,
   dialogue: null,
   panel: null,

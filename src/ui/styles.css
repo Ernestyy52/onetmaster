@@ -115,6 +115,9 @@ kbd {
 .title-card .h-sm { font-size: 28px; }
 .title-sub { margin: -10px 0 0; font-family: var(--font-head); font-size: clamp(16px, 4.5vw, 20px); color: var(--text); }
 .eyebrow { margin: 0; color: var(--muted); font-family: var(--font-head); }
+.import-offer { width: 100%; display: grid; gap: 6px; padding: 12px; border: 2px solid var(--gold); border-radius: 10px; background: rgba(255, 210, 63, 0.08); }
+.import-offer p { margin: 0; }
+.import-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 .lead { margin: 0; }
 .subject-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
 .field { display: grid; gap: 6px; text-align: left; width: 100%; }
