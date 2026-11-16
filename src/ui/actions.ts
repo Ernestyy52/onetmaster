@@ -1,11 +1,13 @@
 // UI controller: turns world interactions into API calls and dialogue.
-import { getApi, requestId } from '../api';
+import { getApi, initApi, ONLINE, requestId } from '../api';
 import type { RunView } from '../api/types';
 import { bus, type InteractTarget } from '../game/eventBus';
 import { ENEMIES, type PlayerAction } from '../shared/combat';
 import { SUBJECTS } from '../shared/data/catalog';
 import { QUESTS } from '../shared/story';
-import type { Appearance, RewardSummary, SubjectId } from '../shared/types';
+import { JOBS } from '../shared/data/jobs';
+import { loadSave, MAX_SLOTS, SAVE_KEY_V1, SAVE_KEY_V2, toLocalImport } from '../api/saveFormat';
+import type { Appearance, JobId, RewardSummary, SubjectId } from '../shared/types';
 import { toast, useGame, type Dialogue, type DialogueChoice } from '../state/store';
 
 const api = () => getApi();
@@ -64,23 +66,103 @@ function showRewards(title: string, rewards: RewardSummary | null, note?: string
 // ───────── boot / profile ─────────
 
 export async function boot() {
+  try {
+    await initApi();
+    if (ONLINE && !(await (await import('../api/auth')).hasSession())) return S().set({ screen: 'auth' });
+    const [progression, characters] = await Promise.all([api().getProgression(), api().listCharacters()]);
+    S().set({ progression, characters, screen: 'title', error: null, importOffer: ONLINE && !characters.length ? localImportOffer() : null });
+  } catch (e) {
+    console.error(e);
+    if (e instanceof Error && e.name === 'NotSignedInError') return S().set({ screen: 'auth' });
+    S().set({ screen: 'auth', error: ONLINE ? 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง' : 'โหลดเกมไม่สำเร็จ' });
+  }
+}
+
+const IMPORT_ANSWERED_KEY = 'onet-import-answered';
+
+/** Offline characters on this device that a new online account could take over (asked once per device). */
+function localImportOffer() {
+  try {
+    if (localStorage.getItem(IMPORT_ANSWERED_KEY)) return null;
+    return toLocalImport(loadSave(localStorage.getItem(SAVE_KEY_V2), localStorage.getItem(SAVE_KEY_V1)).save);
+  } catch {
+    return null;
+  }
+}
+
+function markImportAnswered() {
+  try {
+    localStorage.setItem(IMPORT_ANSWERED_KEY, new Date().toISOString());
+  } catch {
+    /* blocked storage: the server still refuses a second import */
+  }
+}
+
+/** Move this device's offline characters into the (empty) online account. The offline save is kept. */
+export async function importLocalProgress() {
+  const offer = S().importOffer;
+  if (!offer) return;
+  const characters = await guard(() => api().importLocalSave(offer, requestId()));
+  if (!characters) return;
+  markImportAnswered();
   const progression = await api().getProgression();
-  S().set({ progression, screen: 'title' });
+  S().set({ characters, progression, importOffer: null });
+  toast(`นำตัวละคร ${characters.length} ตัวขึ้นบัญชีแล้ว`);
+}
+
+export function declineLocalImport() {
+  markImportAnswered();
+  S().set({ importOffer: null });
+}
+
+export async function signOutOnline() {
+  if (!ONLINE) return;
+  await (await import('../api/auth')).signOut();
+  location.reload();
+}
+
+function firstFreeSlot(): number | null {
+  const used = new Set(S().characters.map((c) => c.slot));
+  for (let slot = 1; slot <= MAX_SLOTS; slot++) if (!used.has(slot)) return slot;
+  return null;
 }
 
 export async function startOrContinue() {
   const p = S().progression;
-  if (!p?.profile) {
-    S().set({ screen: 'create' });
-    return;
-  }
-  S().set({ screen: 'hub' });
+  if (p?.profile) return S().set({ screen: 'hub' });
+  if (S().characters.length) return S().set({ screen: 'select' });
+  S().set({ screen: 'create', createSlot: firstFreeSlot() });
 }
 
-export async function createProfile(nickname: string, appearance: Appearance) {
-  const p = await guard(() => api().createProfile(nickname, appearance));
+export async function openCharacterSelect() {
+  const characters = await api().listCharacters();
+  S().set({ characters, screen: 'select', panel: null, dialogue: null, run: null, nearby: null, worldReady: false });
+}
+
+export function newCharacter(slot: number) {
+  S().set({ screen: 'create', createSlot: slot });
+}
+
+export async function pickCharacter(slot: number) {
+  const progression = await guard(() => api().selectCharacter(slot));
+  if (progression) S().set({ progression, screen: 'hub' });
+}
+
+export async function createCharacter(nickname: string, appearance: Appearance) {
+  const slot = S().createSlot ?? firstFreeSlot();
+  if (slot === null) return toast('ช่องตัวละครเต็มแล้ว');
+  const p = await guard(() => api().createCharacter(slot, nickname, appearance, requestId()));
   if (!p) return;
-  S().set({ progression: p, screen: 'hub' });
+  const characters = await api().listCharacters();
+  S().set({ progression: p, characters, screen: 'hub', createSlot: null });
+}
+
+export async function changeJob(job: JobId) {
+  const p = await guard(() => api().changeJob(job, requestId()));
+  if (!p) return;
+  S().set({ progression: p });
+  bus.emit('world:refresh');
+  toast(`เปลี่ยนเป็น${JOBS[job].name}แล้ว`);
 }
 
 /** Called once the hub scene is ready: resume an unfinished battle after refresh. */
@@ -184,7 +266,10 @@ export function talkOwl() {
     return say({ speaker, portrait: 'owl', lines: ['ประตูได้รับพลังแล้ว! ไปแตะประตูโรงกลจักรเพื่อเปิดมันเลย'] });
   return say({
     speaker, portrait: 'owl',
-    lines: ['เจ้าจบบทนำแล้ว ตราชิ้นแรกกำลังกลับมาส่องแสง', 'ห้องเรียนอื่น ๆ จะเปิดในรุ่นถัดไปของเกม ระหว่างนี้ลองฝึกกับหมอกลืมเลือนเพื่อเก็บ XP ต่อได้'],
+    lines: p.job === 'novice'
+      ? ['เจ้าจบบทนำแล้ว ตราชิ้นแรกกำลังกลับมาส่องแสง', 'ถึงเวลาเลือกเส้นทางของเจ้าแล้ว — นักดาบ ผู้พิทักษ์ นักเวท หรือนักธนู แต่ละอาชีพมีสกิลต่างกัน เปลี่ยนภายหลังได้เสมอ']
+      : [`${JOBS[p.job].name}ผู้กล้า ห้องเรียนอื่น ๆ จะเปิดในรุ่นถัดไปของเกม`, 'ระหว่างนี้ฝึกกับหมอกลืมเลือนเพื่อเก็บ XP และ Job Level ได้ อยากลองอาชีพอื่นก็บอกข้าได้'],
+    choices: [{ label: p.job === 'novice' ? 'เลือกอาชีพ' : 'ดู/เปลี่ยนอาชีพ', primary: true, run: () => S().set({ panel: 'jobs' }) }, later],
   });
 }
 
@@ -201,7 +286,7 @@ export async function openDoor(subject: SubjectId) {
       if (!r) return;
       S().set({ progression: r.progression });
       bus.emit('world:refresh');
-      showRewards('ประตูโรงกลจักรเปิดแล้ว!', r.rewards, 'บันทึกความคืบหน้าของเรื่องแล้ว · บทนำสำเร็จ');
+      showRewards('ประตูโรงกลจักรเปิดแล้ว!', r.rewards, 'บทนำสำเร็จ · กลับไปคุยกับอาจารย์ฮูกเพื่อเลือกอาชีพ');
       return;
     }
     if (p.story.flags.door_math_open) {
@@ -330,6 +415,7 @@ export async function equip(instanceId: string) {
   const p = await guard(() => api().equip(instanceId));
   if (p) {
     S().set({ progression: p });
+    bus.emit('world:refresh'); // redraw equipment on the character
     toast('สวมใส่แล้ว');
   }
 }

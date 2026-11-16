@@ -1,5 +1,5 @@
 import type { CombatEvent, CombatState, PlayerAction } from '../shared/combat';
-import type { Appearance, EquipSlot, Progression, PublicQuestion, RewardSummary } from '../shared/types';
+import type { Appearance, CharacterSummary, EquipSlot, JobId, Progression, PublicQuestion, RewardSummary } from '../shared/types';
 
 /** One question turn as the client sees it (no answer key). */
 export interface QuestionTurn {
@@ -51,9 +51,39 @@ export interface QuestResult {
  * GET /runs/{id}, POST /quests/{id}/complete, GET /progression). `requestId` makes each write
  * idempotent: sending the same id again returns the stored result and grants nothing twice.
  */
+/**
+ * Offline progress offered to a NEW online account (ADR D5.3). Built on the client from localStorage,
+ * which the player can edit, so the server trusts none of it: it rebuilds each character from the
+ * quest list and clamps every number (see LocalGameApi.importLocalSave).
+ */
+export interface LocalImport {
+  characters: {
+    slot: number;
+    nickname: string;
+    appearance: unknown;
+    xp: number;
+    job: JobId;
+    jobs: Partial<Record<JobId, { xp: number }>>;
+    questsDone: string[];
+    /** item ids (not instance ids) that were equipped */
+    equipped: string[];
+  }[];
+  seenFamilies: Record<string, number>;
+  /** kept only as a reference copy; never counted as measured mastery */
+  mastery: Record<string, { attempts: number; correct: number }>;
+}
+
 export interface GameApi {
+  /** Selected character merged with the account-wide mastery; `profile` is null when none is selected. */
   getProgression(): Promise<Progression>;
-  createProfile(nickname: string, appearance: Appearance): Promise<Progression>;
+  listCharacters(): Promise<CharacterSummary[]>;
+  /** Validates the nickname server-side, creates the character in an empty slot and selects it. */
+  createCharacter(slot: number, nickname: string, appearance: Appearance, requestId: string): Promise<Progression>;
+  selectCharacter(slot: number): Promise<Progression>;
+  /** After the prologue: switch between first jobs; each job keeps its own job level. */
+  changeJob(job: JobId, requestId: string): Promise<Progression>;
+  /** Online only, once: move this device's offline characters into an account that has none. */
+  importLocalSave(data: LocalImport, requestId: string): Promise<CharacterSummary[]>;
   talk(npc: string, requestId: string): Promise<QuestResult>;
   acceptQuest(questId: string, requestId: string): Promise<Progression>;
   completeQuest(questId: string, requestId: string): Promise<QuestResult>;

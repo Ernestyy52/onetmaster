@@ -10,7 +10,7 @@ export default defineConfig({
     rollupOptions: { output: { manualChunks: { phaser: ['phaser'] } } },
   },
   test: {
-    include: ['tests/unit/**/*.test.ts'],
+    include: ['tests/unit/**/*.test.ts', 'tests/integration/**/*.test.ts'],
     environment: 'node',
   },
 });

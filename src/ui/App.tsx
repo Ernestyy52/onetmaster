@@ -1,16 +1,16 @@
 import { useEffect, useRef } from 'react';
 import type Phaser from 'phaser';
 import { bus } from '../game/eventBus';
-import { ACTION_INFO, canUse, type PlayerAction } from '../shared/combat';
+import { ACTION_INFO, BASIC_ACTIONS, canUse, type PlayerAction } from '../shared/combat';
+import { ACTIVE_SKILLS } from '../shared/data/jobs';
 import { useGame } from '../state/store';
 import { act, advanceDialogue, answer, boot, dismissExplanation, interact, leaveBattle, onHubReady, refreshProgression } from './actions';
 import { BattleUI } from './battle/BattleUI';
 import { ActionButton, Hud, Joystick, TopButtons } from './components/Hud';
 import { DialogueBox, RewardModal, Toasts } from './components/Overlays';
 import { Panels } from './panels/Panels';
-import { CreateScreen, TitleScreen } from './screens';
+import { AuthScreen, CreateScreen, SelectScreen, TitleScreen } from './screens';
 import { getApi } from '../api';
-import { QUESTION_BANK } from '../shared/data/questions';
 
 function GameCanvas() {
   const ref = useRef<HTMLDivElement>(null);
@@ -68,6 +68,7 @@ function useKeyboard() {
           e.preventDefault();
           bus.emit('input:interact');
         } else if (e.key.toLowerCase() === 'k') s.set({ panel: 'skills' });
+        else if (e.key.toLowerCase() === 'j') s.set({ panel: 'jobs' });
         else if (e.key.toLowerCase() === 'm') s.set({ panel: 'rooms' });
         return;
       }
@@ -90,7 +91,9 @@ function useKeyboard() {
         }
         if (run.state.phase === 'command') {
           const potions = s.progression?.inventory.find((i) => i.itemId === 'focus_potion')?.qty ?? 0;
-          const action = (Object.keys(ACTION_INFO) as PlayerAction[]).find((a) => ACTION_INFO[a].key.toLowerCase() === e.key.toLowerCase());
+          const keyOf = (a: PlayerAction) => (a in ACTIVE_SKILLS ? ACTIVE_SKILLS[a as keyof typeof ACTIVE_SKILLS].key : ACTION_INFO[a as keyof typeof ACTION_INFO].key);
+          const options: PlayerAction[] = [...BASIC_ACTIONS, ...(run.state.skills ?? [])];
+          const action = options.find((a) => keyOf(a).toLowerCase() === e.key.toLowerCase());
           if (action && canUse(run.state, action, potions)) void act(action);
         }
       }
@@ -120,16 +123,25 @@ export function App() {
     ];
     void boot();
     if (import.meta.env.DEV || new URLSearchParams(location.search).has('test')) {
-      (window as unknown as Record<string, unknown>).__onet = {
+      const helpers: Record<string, unknown> = {
         store: useGame,
-        api: getApi(),
-        bus,
-        // test-only helper: correct option for the current question (keys are bundled in local mode anyway)
-        answerFor: () => {
-          const t = useGame.getState().run?.turn;
-          return t ? (QUESTION_BANK.find((q) => q.id === t.question.id)?.answer_key ?? null) : null;
+        get api() {
+          return getApi();
         },
+        bus,
+        answerFor: () => null,
       };
+      (window as unknown as Record<string, unknown>).__onet = helpers;
+      // Offline-only test helper: correct option for the current question (keys ship with offline
+      // builds anyway). Online builds constant-fold this away, so no answer keys reach them.
+      if (!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY)) {
+        void import('../shared/data/questions').then(({ QUESTION_BANK }) => {
+          helpers.answerFor = () => {
+            const t = useGame.getState().run?.turn;
+            return t ? (QUESTION_BANK.find((q) => q.id === t.question.id)?.answer_key ?? null) : null;
+          };
+        });
+      }
     }
     return () => offs.forEach((o) => o());
   }, []);
@@ -143,7 +155,9 @@ export function App() {
       )}
       <div className="ui-layer">
         {screen === 'loading' && <div className="screen"><p>กำลังโหลด…</p></div>}
+        {screen === 'auth' && <AuthScreen />}
         {screen === 'title' && <TitleScreen />}
+        {screen === 'select' && <SelectScreen />}
         {screen === 'create' && <CreateScreen />}
         {screen === 'hub' && (
           <>
@@ -163,7 +177,7 @@ export function App() {
         )}
         <RewardModal />
         <Toasts />
-        {error && <div className="error-banner" role="alert">{error}</div>}
+        {error && screen !== 'auth' && <div className="error-banner" role="alert">{error}</div>}
       </div>
     </div>
   );

@@ -24,7 +24,7 @@ describe('LocalGameApi (server contract)', () => {
   beforeEach(async () => {
     storage = new MemoryStorage();
     api = new LocalGameApi(storage, QUESTION_BANK, () => 0.3);
-    await api.createProfile('  ทดสอบ  ', 'mage');
+    await api.createCharacter(1, '  ทดสอบ  ', { gender: 'female' }, 'create-1');
   });
 
   it('never sends the answer key before answering', async () => {
@@ -78,7 +78,7 @@ describe('LocalGameApi (server contract)', () => {
     await expect(api.completeQuest('q_math_door', 'door-2')).rejects.toThrow();
 
     // reload from the same storage = "refresh the page"
-    const reloaded = new LocalGameApi(storage);
+    const reloaded = new LocalGameApi(storage, QUESTION_BANK);
     const again = await reloaded.getProgression();
     expect(again.story.quests.q_math_door).toBe('done');
     expect(again.xp).toBe(done.progression.xp);
@@ -86,7 +86,7 @@ describe('LocalGameApi (server contract)', () => {
 
   it('resumes an unfinished run after reload', async () => {
     const v = await api.startRun('fog_wisp', 'r1');
-    const reloaded = new LocalGameApi(storage);
+    const reloaded = new LocalGameApi(storage, QUESTION_BANK);
     const p = await reloaded.getProgression();
     expect(p.activeRunId).toBe(v.runId);
     const resumed = await reloaded.getRun(v.runId);
@@ -95,8 +95,8 @@ describe('LocalGameApi (server contract)', () => {
 
   it('equipment changes attack stats', async () => {
     const p = await api.getProgression();
-    expect(p.equipment.weapon).toBe('inv-1');
-    await expect(api.equip('inv-3')).rejects.toThrow(); // potion is not equipment
+    expect(p.equipment.weapon).toBe('s1-inv-1');
+    await expect(api.equip('s1-inv-3')).rejects.toThrow(); // potion is not equipment
   });
 
   it('item instance ids stay unique', async () => {

@@ -276,9 +276,71 @@ const FRAMES: { pose: Pose; f: number }[] = [
   { pose: 'hurt', f: 0 }, { pose: 'victory', f: 0 },
 ];
 
+type WeaponKind = 'none' | 'sword' | 'staff' | 'wood_sword' | 'wrench' | 'mace' | 'bow';
+
+const WEAPON_COLOR: Record<Exclude<WeaponKind, 'none'>, RGBA> = {
+  sword: hex('#dfe6f2'), wood_sword: hex('#c89a5b'), staff: hex('#7a5230'), wrench: hex('#c8763a'), mace: hex('#8d8aa0'), bow: hex('#a8743f'),
+};
+
+/** Weapon in the right hand. `raised` = attack / victory pose. */
+function drawWeapon(c: Canvas, kind: WeaponKind, hx: number, hy: number, raised: boolean) {
+  if (kind === 'none') return;
+  const col = WEAPON_COLOR[kind];
+  switch (kind) {
+    case 'sword':
+    case 'wood_sword': {
+      const guard = kind === 'sword' ? hex('#8a6a2a') : hex('#6b4426');
+      if (raised) {
+        c.rect(hx, hy - 14, 2, 14, col);
+        c.rect(hx - 2, hy - 1, 6, 2, guard);
+      } else {
+        c.rect(hx, hy, 2, 12, col);
+        c.rect(hx - 2, hy, 6, 2, guard);
+      }
+      break;
+    }
+    case 'staff':
+      c.rect(hx, hy - 16, 2, 26, col);
+      c.ellipse(hx + 1, hy - 18, 3, 3, hex('#8fe3ff'));
+      break;
+    case 'wrench': {
+      const y0 = raised ? hy - 12 : hy;
+      const jaw = raised ? y0 - 2 : y0 + 11;
+      c.rect(hx, y0, 2, 12, col);
+      c.rect(hx - 1, jaw, 4, 2, col);
+      c.rect(hx - 1, raised ? jaw - 2 : jaw + 2, 1, 2, col);
+      c.rect(hx + 2, raised ? jaw - 2 : jaw + 2, 1, 2, col);
+      break;
+    }
+    case 'mace': {
+      const handle = hex('#7a5230');
+      if (raised) {
+        c.rect(hx, hy - 10, 2, 11, handle);
+        c.ellipse(hx + 1, hy - 12, 3.5, 3.5, col);
+      } else {
+        c.rect(hx, hy, 2, 10, handle);
+        c.ellipse(hx + 1, hy + 11, 3.5, 3.5, col);
+      }
+      break;
+    }
+    case 'bow': {
+      const cy = raised ? hy - 6 : hy + 4;
+      for (let i = -9; i <= 9; i++) c.px(hx + 2 + Math.round(3 * (1 - (i / 9) ** 2)), cy + i, col);
+      c.line(hx + 2, cy - 9, hx + 2, cy + 9, hex('#f3ead2'));
+      break;
+    }
+  }
+}
+
 interface Look {
   skin: RGBA; hair: RGBA; tunic: RGBA; tunicDark: RGBA; pants: RGBA; boots: RGBA; accent: RGBA;
-  robe: boolean; hat: boolean; weapon: 'sword' | 'staff';
+  robe: boolean; hat: boolean;
+  /** in-hand weapon; 'none' for paper-doll base bodies (weapons are separate overlay sheets) */
+  weapon: WeaponKind;
+  /** equipment overlays: apprentice mantle, winged boots */
+  mantle?: boolean; wingBoots?: boolean;
+  /** female variants: shoulder-length hair, hair ribbon, short skirt over the tunic */
+  longHair?: boolean; ribbon?: boolean; skirt?: boolean;
 }
 
 function drawCharacter(c: Canvas, ox: number, oy: number, dir: Dir, pose: Pose, f: number, L: Look) {
@@ -299,6 +361,10 @@ function drawCharacter(c: Canvas, ox: number, oy: number, dir: Dir, pose: Pose, 
     c.rect(lx2, ly2, 4, 9, L.pants);
     c.rect(lx1, ly1 + 7, 4 + (side > 0 ? 1 : 0), 3, L.boots);
     c.rect(lx2 - (side < 0 ? 1 : 0), ly2 + 7, 4 + (side < 0 ? 1 : 0), 3, L.boots);
+    if (L.wingBoots) {
+      c.px(lx1 - 1, ly1 + 7, hex('#ffffff'));
+      c.px(lx2 + 4, ly2 + 7, hex('#ffffff'));
+    }
   }
   // torso
   const tx = cx - 7 + lean;
@@ -310,7 +376,20 @@ function drawCharacter(c: Canvas, ox: number, oy: number, dir: Dir, pose: Pose, 
     c.rect(tx - 1, ty + 9, 16, 9, L.tunic);
     c.rect(tx + 11, ty + 9, 4, 9, L.tunicDark);
   }
+  if (L.skirt && !L.robe) {
+    c.rect(tx - 1, ty + 10, 16, 5, L.tunic);
+    c.rect(tx + 11, ty + 10, 4, 5, L.tunicDark);
+  }
   c.rect(tx, ty + 8, 14, 2, L.accent); // belt / sash
+  if (L.mantle) {
+    const cream = hex('#f3ead2');
+    if (dir === 'up') c.rect(tx, ty + 1, 14, 14, shade(cream, -0.08));
+    else {
+      c.rect(tx - 1, ty, 16, 4, cream);
+      c.rect(tx - 1, ty + 12, 16, 2, cream);
+      c.rect(tx + 5, ty, 4, 2, hex('#c2507a'));
+    }
+  }
   // arms + weapon
   const armColor = L.tunicDark;
   const attackReach = pose === 'attack' ? (f === 0 ? 3 : 7) : 0;
@@ -333,20 +412,7 @@ function drawCharacter(c: Canvas, ox: number, oy: number, dir: Dir, pose: Pose, 
   // weapon in right hand
   const hx = victory ? rightArmX + 1 : rightArmX + 1 + (side >= 0 ? attackReach : 0);
   const hy = victory ? ty - 12 : ty + 10 - swing - (attackReach ? 3 : 0);
-  if (dir !== 'up') {
-    if (L.weapon === 'sword') {
-      if (attackReach || victory) {
-        c.rect(hx, hy - 14, 2, 14, hex('#dfe6f2'));
-        c.rect(hx - 2, hy - 1, 6, 2, hex('#8a6a2a'));
-      } else {
-        c.rect(hx, hy, 2, 12, hex('#dfe6f2'));
-        c.rect(hx - 2, hy, 6, 2, hex('#8a6a2a'));
-      }
-    } else {
-      c.rect(hx, hy - 16, 2, 26, hex('#7a5230'));
-      c.ellipse(hx + 1, hy - 18, 3, 3, hex('#8fe3ff'));
-    }
-  }
+  if (dir !== 'up') drawWeapon(c, L.weapon, hx, hy, attackReach > 0 || victory);
   // head
   const hcx = cx + lean + side;
   const hcy = top + 9;
@@ -379,27 +445,47 @@ function drawCharacter(c: Canvas, ox: number, oy: number, dir: Dir, pose: Pose, 
       c.rect(hcx + side * 4, hcy + 1, 2, 3, eye);
     }
   }
+  if (L.longHair) {
+    if (dir === 'up') c.rect(hcx - 8, hcy, 16, 12, L.hair);
+    else if (side) c.rect(hcx - side * 7 - 2, hcy - 2, 5, 13, L.hair);
+    else {
+      c.rect(hcx - 10, hcy - 3, 3, 14, L.hair);
+      c.rect(hcx + 8, hcy - 3, 3, 14, L.hair);
+    }
+  }
+  if (L.ribbon && !L.hat && dir !== 'up') {
+    const rx = side ? hcx - side * 5 : hcx + 4;
+    c.rect(rx - 2, hcy - 10, 5, 3, L.accent);
+    c.px(rx, hcy - 9, shade(L.accent, -0.3));
+  }
   if (L.hat) {
     c.rect(hcx - 11, hcy - 6, 22, 3, L.tunicDark);
     for (let i = 0; i < 11; i++) c.rect(hcx - 7 + Math.floor(i * 0.6) - side * Math.floor(i / 4), hcy - 7 - i, 14 - Math.floor(i * 1.2), 1, L.tunic);
     c.px(hcx + 1 - side * 3, hcy - 18, L.accent);
   }
-  if (dir === 'up' && L.weapon === 'sword') {
-    c.line(cx - 6, ty - 2, cx + 6, ty + 14, hex('#dfe6f2'));
+  if (dir === 'up' && L.weapon !== 'none') {
+    // carried on the back when walking away from the camera
+    c.line(cx - 6, ty - 2, cx + 6, ty + 14, WEAPON_COLOR[L.weapon]);
+    if (L.weapon === 'staff') c.ellipse(cx - 6, ty - 3, 2, 2, hex('#8fe3ff'));
   }
+}
+
+function renderFrame(dir: Dir, pose: Pose, f: number, L: Look): Canvas {
+  const frame = new Canvas(48, 64);
+  drawCharacter(frame, 0, 0, dir, pose, f, L);
+  if (pose === 'hurt') {
+    for (let i = 0; i < frame.data.length; i += 4)
+      if (frame.data[i + 3]) frame.data[i] = Math.min(255, frame.data[i] + 70);
+  }
+  frame.outline(OUTLINE);
+  return frame;
 }
 
 function buildCharacter(key: string, L: Look) {
   const sheet = new Canvas(48 * FRAMES.length, 64 * DIRS.length);
   DIRS.forEach((dir, row) =>
     FRAMES.forEach(({ pose, f }, col) => {
-      const frame = new Canvas(48, 64);
-      drawCharacter(frame, 0, 0, dir, pose, f, L);
-      if (pose === 'hurt') {
-        for (let i = 0; i < frame.data.length; i += 4)
-          if (frame.data[i + 3]) frame.data[i] = Math.min(255, frame.data[i] + 70);
-      }
-      frame.outline(OUTLINE);
+      const frame = renderFrame(dir, pose, f, L);
       const withShadow = new Canvas(48, 64);
       shadow(withShadow, 24, 60, 10, 3);
       withShadow.blit(frame, 0, 0);
@@ -411,6 +497,31 @@ function buildCharacter(key: string, L: Look) {
     key, file: `sprites/${key}.png`, category: 'spritesheet', width: sheet.w, height: sheet.h, frameWidth: 48, frameHeight: 64,
     frames: FRAMES.length * DIRS.length, anchor: { x: 0.5, y: 0.94 },
     notes: 'rows: down,left,right,up · cols: idle×2, walk×4, attack×2, hurt, victory',
+  });
+}
+
+/**
+ * Paper-doll equipment overlay: render every frame with and without the item and keep only the
+ * pixels that differ. Drawn over the body sheet with the same frame index, so it lines up exactly.
+ */
+function buildOverlay(key: string, base: Look, withItem: Look, notes: string) {
+  const sheet = new Canvas(48 * FRAMES.length, 64 * DIRS.length);
+  DIRS.forEach((dir, row) =>
+    FRAMES.forEach(({ pose, f }, col) => {
+      const a = renderFrame(dir, pose, f, base);
+      const b = renderFrame(dir, pose, f, withItem);
+      const out = new Canvas(48, 64);
+      for (let i = 0; i < b.data.length; i += 4) {
+        const same = a.data[i] === b.data[i] && a.data[i + 1] === b.data[i + 1] && a.data[i + 2] === b.data[i + 2] && a.data[i + 3] === b.data[i + 3];
+        if (!same) out.data.set(b.data.subarray(i, i + 4), i);
+      }
+      sheet.blit(out, col * 48, row * 64);
+    }),
+  );
+  sheet.save(`${OUT}/equipment/${key}.png`);
+  register({
+    key, file: `equipment/${key}.png`, category: 'spritesheet', width: sheet.w, height: sheet.h, frameWidth: 48, frameHeight: 64,
+    frames: FRAMES.length * DIRS.length, anchor: { x: 0.5, y: 0.94 }, notes: `equipment overlay · ${notes} · same frame grid as player sheets`,
   });
 }
 
@@ -515,7 +626,8 @@ function buildWarden() {
 }
 
 // ─────────────────────────── Icons & effects ───────────────────────────
-export const ICONS = ['sword', 'robe', 'wrench', 'boots', 'potion', 'badge', 'book', 'letter', 'gear', 'flask', 'bag', 'quest', 'skillbook'] as const;
+// Append only: the index of each name is its frame in icons.png (src/ui/icons.ts must match).
+export const ICONS = ['sword', 'robe', 'wrench', 'boots', 'potion', 'badge', 'book', 'letter', 'gear', 'flask', 'bag', 'quest', 'skillbook', 'shield', 'staff', 'bow', 'mace'] as const;
 
 function buildIcons() {
   const sheet = new Canvas(32 * ICONS.length, 32);
@@ -598,6 +710,33 @@ function buildIcons() {
       c.rect(9, 9, 14, 14, hex('#b79bf2'));
       c.ellipse(16, 16, 4, 4, hex('#fff1b8'));
     },
+    shield: (c) => {
+      // kite shield: wide top, pointed bottom, gold rim and cross
+      for (let y = 5; y < 28; y++) {
+        const half = y < 16 ? 11 : Math.max(1, Math.round(11 - (y - 16) * 0.9));
+        c.rect(16 - half, y, half * 2, 1, hex('#c9a227'));
+        if (half > 2) c.rect(16 - half + 2, y, half * 2 - 4, 1, hex('#4f86c6'));
+      }
+      c.rect(15, 8, 2, 16, hex('#e8c25a'));
+      c.rect(9, 13, 14, 2, hex('#e8c25a'));
+    },
+    staff: (c) => {
+      for (let i = 0; i < 18; i++) c.rect(8 + i * 0.7, 27 - i, 2, 2, hex('#7a5230'));
+      c.ellipse(22, 8, 5, 5, hex('#8fe3ff'));
+      c.ellipse(21, 7, 2, 2, hex('#ffffff'));
+    },
+    bow: (c) => {
+      for (let i = -11; i <= 11; i++) c.rect(12 + Math.round(8 * (1 - (i / 11) ** 2)), 16 + i, 2, 1, hex('#a8743f'));
+      c.line(13, 5, 13, 27, hex('#f3ead2'));
+      c.line(9, 16, 24, 16, hex('#dfe6f2'));
+      c.rect(23, 15, 3, 3, hex('#dfe6f2'));
+    },
+    mace: (c) => {
+      for (let i = 0; i < 14; i++) c.rect(7 + i, 25 - i, 3, 3, hex('#7a5230'));
+      c.ellipse(21, 10, 6, 6, hex('#8d8aa0'));
+      c.px(21, 3, hex('#8d8aa0')); c.px(28, 10, hex('#8d8aa0')); c.px(14, 10, hex('#8d8aa0'));
+      c.ellipse(19, 8, 2, 2, hex('#c7c4d6'));
+    },
   };
   ICONS.forEach((name, i) => {
     const c = new Canvas(32, 32);
@@ -624,14 +763,31 @@ function buildEffects() {
 
 buildTileset();
 buildProps();
-buildCharacter('player_swordsman', {
+const BASIC: Look = {
   skin: hex('#f6d2b0'), hair: hex('#5a3a22'), tunic: hex('#3b5bdb'), tunicDark: hex('#2b44a8'), pants: hex('#3d3550'),
-  boots: hex('#6b4426'), accent: hex('#e8c25a'), robe: false, hat: false, weapon: 'sword',
-});
+  boots: hex('#6b4426'), accent: hex('#e8c25a'), robe: false, hat: false, weapon: 'none',
+};
+// Paper-doll base bodies: basic outfit, empty hands. Weapons/armor/boots come from overlays below.
+buildCharacter('player_swordsman', BASIC);
 buildCharacter('player_mage', {
   skin: hex('#efc8a4'), hair: hex('#1f1f2e'), tunic: hex('#7d4fd6'), tunicDark: hex('#5b36a8'), pants: hex('#3d3550'),
   boots: hex('#5a3a22'), accent: hex('#ffd166'), robe: true, hat: true, weapon: 'staff',
 });
+// Female body with the SAME basic starter outfit as player_swordsman (identical colours, tunic,
+// boots and training sword) — only the hair differs. Outfits are not chosen at creation.
+buildCharacter('player_female_basic', { ...BASIC, longHair: true });
+// Equipment overlays (gender-neutral: both bodies share the same geometry apart from the hair).
+const EQUIPMENT_OVERLAYS: [string, Partial<Look>, string][] = [
+  ['eq_wooden_sword', { weapon: 'wood_sword' }, 'wooden_sword'],
+  ['eq_training_blade', { weapon: 'sword' }, 'training_blade'],
+  ['eq_copper_wrench', { weapon: 'wrench' }, 'copper_gear_wrench'],
+  ['eq_oak_mace', { weapon: 'mace' }, 'oak_mace'],
+  ['eq_apprentice_staff', { weapon: 'staff' }, 'apprentice_staff'],
+  ['eq_willow_bow', { weapon: 'bow' }, 'willow_bow'],
+  ['eq_apprentice_robe', { mantle: true }, 'apprentice_robe (mantle)'],
+  ['eq_wind_boots', { boots: hex('#3fae7a'), wingBoots: true }, 'wind_boots'],
+];
+for (const [key, change, item] of EQUIPMENT_OVERLAYS) buildOverlay(key, BASIC, { ...BASIC, ...change }, item);
 buildOwl();
 buildWisp();
 buildWarden();
@@ -639,7 +795,7 @@ buildIcons();
 buildEffects();
 
 manifest.push({
-  key: 'hub', file: 'maps/hub.json', category: 'map', width: 22, height: 22, license: LICENSE, status: 'placeholder',
+  key: 'hub', file: 'maps/hub.json', category: 'map', width: 23, height: 23, license: LICENSE, status: 'placeholder',
   notes: 'Tiled isometric JSON generated by tools/maps/generate-hub.ts — editable in Tiled',
 });
 writeFileSync(`${OUT}/manifest.json`, JSON.stringify({ version: 1, generatedBy: 'tools/assets/generate-placeholders.ts', assets: manifest }, null, 2));
